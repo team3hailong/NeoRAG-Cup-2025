@@ -67,3 +67,28 @@ Thành viên thuộc **Team AI – CLB Lập trình ProPTIT**.
 
 📌 **Hãy sẵn sàng sáng tạo & bứt phá cùng NeoRAG Cup 2025!**  
 💬 Mọi thắc mắc vui lòng comment hoặc inbox BTC để được giải đáp.  
+
+---
+
+## 📊 Benchmark Kết Quả Trên Tập Train  
+
+### 1. Retrieval Benchmark (Base Model)
+
+| K  | hit@k | recall@k | precision@k | f1@k | map@k | mrr@k | ndcg@k | context_precision@k | context_recall@k | context_entities_recall@k |
+|----|-------|----------|-------------|------|-------|-------|--------|---------------------|------------------|---------------------------|
+| 3  | 0.31  | 0.19     | 0.12        | 0.15 | 0.23  | 0.23  | 0.25   | 0.63                | 0.50             | 0.32                      |
+| 5  | 0.46  | 0.28     | 0.10        | 0.15 | 0.23  | 0.27  | 0.31   | 0.56                | 0.44             | 0.37                      |
+| 7  | 0.57  | 0.35     | 0.09        | 0.15 | 0.23  | 0.28  | 0.35   | 0.54                | 0.40             | 0.38                      |
+
+
+---
+
+### 2. LLM Answer Benchmark (Base Model)
+
+| K  | string_presence@k | rouge_l@k | bleu_4@k | groundedness@k | response_relevancy@k | noise_sensitivity@k |
+|----|-------------------|-----------|----------|----------------|----------------------|---------------------|
+| 3  | 0.35              | 0.21      | 0.03     | 0.57           | 0.80                 | 0.51                |
+| 5  | 0.40              | 0.23      | 0.03     | 0.61           | 0.80                 | 0.53                |
+| 7  | 0.41              | 0.22      | 0.04     | 0.64           | 0.80                 | 0.51                |
+
+---
