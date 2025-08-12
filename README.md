@@ -63,7 +63,8 @@ Người tham gia sẽ:
 
 ## 📊 Benchmark
 
-- Trong suốt cuộc thi, các bạn sẽ chỉ được cung cấp bộ dữ liệu train. Bộ dữ liệu test sẽ được BTC công bố vào ngày thi cuối cùng. Dưới đây là benchmark của baseline model — mục tiêu của bạn là xây dựng mô hình có hiệu năng vượt qua được baseline model. 
+- Trong suốt cuộc thi, các bạn sẽ chỉ được cung cấp bộ dữ liệu train. Bộ dữ liệu test sẽ được BTC công bố vào ngày thi cuối cùng. Dưới đây là benchmark của baseline model — mục tiêu của bạn là xây dựng mô hình có hiệu năng vượt qua được baseline model.
+- Nhiệm vụ: Chỉnh sửa các file main.py, metrics_rag.py, vector_db.py và embeddings.py. Trong mỗi file đã được đánh dấu rõ vị trí cần chỉnh sửa — hãy đọc kỹ và thực hiện cẩn thận.
 
 ### **Retrieval – Train (100 query)** 
 | K  | hit@k | recall@k | precision@k | f1@k | map@k | mrr@k | ndcg@k | context_precision@k | context_recall@k | context_entities_recall@k |
