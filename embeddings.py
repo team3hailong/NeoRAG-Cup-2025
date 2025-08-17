@@ -13,6 +13,11 @@ class Embeddings:
         self.type = type
         if type == "openai":
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        elif type == "ollama":
+            self.client = OpenAI(
+                base_url="http://localhost:11434/v1",
+                api_key="ollama"
+            )
         elif type == "sentence_transformers":
             self.client = SentenceTransformer(model_name)
         elif type == "gemini":
@@ -21,13 +26,14 @@ class Embeddings:
             )
 
     def encode(self, doc):
-        if self.type == "openai":
+        if self.type in ["openai", "ollama"]:
             return self.client.embeddings.create(
                 input=doc,
                 model=self.model_name
             ).data[0].embedding
         elif self.type == "sentence_transformers":
-            return self.client.encode(doc)
+            embedding = self.client.encode(doc)
+            return embedding.tolist()
         elif self.type == "gemini":
             return self.client.models.embed_content(
                 model=self.model_name,

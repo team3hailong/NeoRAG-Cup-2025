@@ -1,9 +1,67 @@
 import pandas as pd
+import openai
+import os
+from dotenv import load_dotenv
+from google import genai
 
+load_dotenv()
+
+# Option 1: OpenAI GPT (bản trả phí)
+# client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# MODEL_NAME = "gpt-4o-mini"
+
+# Option 2: Ollama (local)
+client = openai.OpenAI(
+    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+    api_key=os.getenv("OLLAMA_API_KEY", "ollama")
+)
+# Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemini-2.5-pro")
+
+# Option 3: Gemini Pro 
+# client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# MODEL_NAME = "gemini-2.5-flash"
+
+# 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
+def get_llm_response(messages, model_name=MODEL_NAME):
+    try:
+        if "gemini" in model_name.lower():
+            # Convert OpenAI format to Gemini format
+            system_content = ""
+            user_content = ""
+            
+            for msg in messages:
+                if msg["role"] == "system":
+                    system_content = msg["content"]
+                elif msg["role"] == "user":
+                    user_content = msg["content"]
+            
+            # Combine system and user messages for Gemini
+            combined_prompt = f"{system_content}\n\nUser: {user_content}"
+            
+            response = client.models.generate_content(
+                model=model_name,
+                contents=combined_prompt
+            )
+            return response.text
+        else:
+            # OpenAI format (fallback)
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=0.1,  
+                max_tokens=1000   
+            )
+            return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error calling LLM: {e}")
+        return ""
+
+# Nên chạy từng hàm từ đoạn này để test
 
 def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
-    df_train = pd.read_excel(file_train_data_proptit).head(2)
+    df_train = pd.read_excel(file_train_data_proptit)
 
     hits = 0
     total_queries = len(df_train)
@@ -14,11 +72,11 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, k=5):
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Embedding câu query
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         # Lấy danh sách tài liệu được truy suất
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
         ground_truth_docs =  []
         if type(ground_truth_doc) is str:
             for doc in ground_truth_doc.split(","):
@@ -45,13 +103,13 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Embedding câu query
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
 
         # Lấy danh sách tài liệu được truy suất
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
         ground_truth_docs =  []
         if type(ground_truth_doc) is str:
             for doc in ground_truth_doc.split(","):
@@ -76,13 +134,13 @@ def precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
 
         # Lấy danh sách tài liệu được truy suất
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
         # print(f"Retrieved documents: {retrieved_docs}")
         ground_truth_docs =  []
         if type(ground_truth_doc) is str:
@@ -121,13 +179,13 @@ def map_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
 
         # Lấy danh sách tài liệu được truy suất
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
         # print(f"Retrieved documents: {retrieved_docs}")
         ground_truth_docs =  []
         if type(ground_truth_doc) is str:
@@ -159,13 +217,13 @@ def mrr_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
 
         # Lấy danh sách tài liệu được truy suất
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
         # print(f"Retrieved documents: {retrieved_docs}")
         ground_truth_docs =  []
         if type(ground_truth_doc) is str:
@@ -216,13 +274,13 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
 
 
-        retrieved_docs = FIX_ME
+        retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
 
         ground_truth_docs = []
         if type(ground_truth_doc) is str:
@@ -237,7 +295,9 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         for doc in retrieved_docs:
             if doc in ground_truth_docs:
                 # Giả sử ta có một hàm để tính độ tương đồng giữa câu hỏi và tài liệu, doc là số thứ tự của tài liệu trong file CLB_PROPTIT.csv
-                similarity_score = similarity(user_embedding, FIX_ME)
+                doc_result = [r for r in results if int(r['title'].split(' ')[-1]) == doc][0]
+                doc_embedding = embedding.encode(doc_result['information'])
+                similarity_score = similarity(user_embedding, doc_embedding)
                 if similarity_score > 0.9:
                     relevances.append(3)
                 elif similarity_score > 0.7:
@@ -267,29 +327,40 @@ def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
         hits = 0
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         
         # TODO: viết câu query của người dùng (bao gồm document retrieval và câu query)
-        context = FIX_ME
+        context = "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
 
         # Thêm context vào messages
         messages.append({
             "role": "user",
-            "content": FIX_ME
+            "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
-        reply = FIX_ME
+        reply = get_llm_response(messages)
 
         # Đẩy các đoạn văn được retrieved và câu trả lời của LLM vào một LLM Judged context với prompt system
         # LLM Judged context
@@ -304,11 +375,10 @@ def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
             # TODO: "content" sẽ lưu ngữ cảnh, câu hỏi, câu trả lời
             messages_judged.append({
                 "role": "user",
-                "content": FIX_ME
+                "content": f"Ngữ cảnh: {result['information']}\n\nCâu hỏi: {query}\n\nCâu trả lời: {reply}"
             })
             # Gọi API đến LLM Judged
-            judged_response = FIX_ME
-            judged_reply = FIX_ME
+            judged_reply = get_llm_response(messages_judged)
             if judged_reply == "1":
                 hits += 1
         precision = hits / k if k > 0 else 0
@@ -328,10 +398,10 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         
 
@@ -345,11 +415,10 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
             ]
             messages_judged.append({
                 "role": "user",
-                "content": FIX_ME
+                "content": f"Ngữ cảnh: {result['information']}\n\nCâu hỏi: {query}\n\nCâu trả lời chính xác: {reply}"
             })
 
-            judged_response = FIX_ME
-            judged_reply = FIX_ME
+            judged_reply = get_llm_response(messages_judged)
             if judged_reply == "1":
                 hits += 1
         recall = hits / k if k > 0 else 0
@@ -367,10 +436,10 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         # Trích xuất các thực thể từ Ground truth answer bằng LLM
         # NOTE: Các em có thể thay đổi messages_entities nếu muốn
@@ -391,8 +460,8 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
             "content": f"Câu trả lời: {reply}"
         })
         # Gọi  API để trích xuất các thực thể
-        entities_response = FIX_ME
-        entities = FIX_ME # Vdu: entities = ["ngành khác", "CLB", "CNTT", "mảng"] 
+        entities = get_llm_response(messages_entities)
+        entities = eval(entities) if entities.startswith('[') else []
         tmp = len(entities)
         for result in results:
             context = result['information']
@@ -459,26 +528,37 @@ def string_presence_k(file_clb_proptit, file_train, embedding, vector_db,  k=5):
         hits = 0
         query = row['Query']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+3. Tuyệt đối không suy đoán hoặc bịa thông tin.
+4. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+5. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
-        context = FIX_ME
+        context = "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
         # Thêm context vào messages
         messages.append({
             "role": "user",
-            "content": FIX_ME
+            "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
-        response = FIX_ME
+        response = get_llm_response(messages)
         # Trích xuất các thực thể từ câu trả lời bằng LLM
         # NOTE: Các em có thể thay đổi message_entities nếu muốn
         messages_entities = [
@@ -498,10 +578,8 @@ def string_presence_k(file_clb_proptit, file_train, embedding, vector_db,  k=5):
             "content": f"Câu trả lời: {reply}"
         })
         # Gọi  API để trích xuất các thực thể
-        entities_response = FIX_ME
-        entities = entities_response.choices[0].message.content.strip().split("\n")
-        entities = entities[0] # "["ngành khác", "CLB", "CNTT", "mảng]" -> ["ngành khác", "CLB", "CNTT", "mảng"]
-        entities = eval(entities) if entities else []  # Chuyển đổi chuỗi thành danh sách
+        entities = get_llm_response(messages_entities)
+        entities = eval(entities) if entities.startswith('[') else []
         for entity in entities:
             if entity.strip() in response:
                 hits += 1
@@ -535,19 +613,18 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
             {
                 "role": "system",
                 "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-    Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
 
-    Nguyên tắc trả lời:
-    1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-    2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-    3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-    4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-    5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-    6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
 
-    Nhiệm vụ của bạn:
-    - Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác.
-    """
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -559,7 +636,7 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi API để lấy câu trả lời
-        response = FIX_ME
+        response = get_llm_response(messages)
         scores = rouge.get_scores(response, reply)
         rouge_l = scores[0]['rouge-l']['f']
         total_rouge_l += rouge_l
@@ -577,18 +654,31 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     for index, row in df_train.iterrows():
         query = row['Query']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
-        context = FIX_ME
+        context = "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
 
         # Sửa content nếu muốn
         messages.append({
@@ -596,7 +686,7 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
+        response = get_llm_response(messages)
         reference = reply.split()
         candidate = response.split()
         bleu_4 = sentence_bleu([reference], candidate, smoothing_function=smoothing_function)
@@ -616,18 +706,31 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         cnt = 0
         query = row['Query']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
-        context = FIX_ME
+        context = "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
 
         # Thêm context vào messages, sửa content nếu muốn
         messages.append({
@@ -635,14 +738,14 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
+        response = get_llm_response(messages)
       
     
         # Tách response thành các câu
         sentences = response.split('. ')
         for sentence in sentences:
             # Tạo một prompt để kiểm tra tính groundedness của câu
-            # NOTE: Các em có thể sửa đổi prompt này nếu muốn
+            # Sửa prompt nếu muốn
             messages_groundedness = [
                 {
                     "role": "system",
@@ -671,8 +774,7 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
                 "content": f"Question: {query}\n\nContexts: {context}\n\nAnswer: {sentence.strip()}"
             })
             # Gọi  API để đánh giá groundedness
-            groundedness_response = FIX_ME
-            groundedness_reply = FIX_ME
+            groundedness_reply = get_llm_response(messages_groundedness)
 
             if groundedness_reply == "supported":
                 hits += 1
@@ -686,7 +788,7 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
 
 
 def generate_related_questions(response, embedding):
-    # Sửa systemp prompt nếu muốn
+    # Sửa system prompt nếu muốn
     messages_related = [
         {
             "role": "system",
@@ -704,8 +806,7 @@ def generate_related_questions(response, embedding):
         "content": f"Câu trả lời: {response}"
     })
     # Gọi  API để tạo ra các câu hỏi liên quan
-    related_response = FIX_ME
-    related_questions = FIX_ME
+    related_questions = get_llm_response(messages_related)
     return related_questions
 
 def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
@@ -719,18 +820,31 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
         cnt = 0
         query = row['Query']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
-        context = FIX_ME
+        context = "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
 
         # Sửa content nếu muốn
         messages.append({
@@ -738,13 +852,13 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
+        response = get_llm_response(messages)
 
         # Dùng câu trả lời của LLM để sinh ra các câu hỏi liên quan
         related_questions = generate_related_questions(response, embedding) # "["CLB Lập Trình PTIT được thành lập khi nào?", "Slogan của CLB là gì?", "Mục tiêu của CLB là gì?"]"
         related_questions = eval(related_questions) if related_questions else []  # Chuyển đổi chuỗi thành danh sách
         for question in related_questions:
-            question_embedding = FIX_ME
+            question_embedding = embedding.encode(question)
             # Tính score relevancy giữa câu hỏi và query
             score = similarity(user_embedding, question_embedding)
             hits += score
@@ -765,18 +879,31 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
         cnt = 0
         query = row['Query']
         # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = FIX_ME
+        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = FIX_ME
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
                 "role": "system",
-                "content": FIX_ME
+                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời:
+1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
             }
         ]
-        context =  FIX_ME
+        context =  "Content từ các tài liệu liên quan:\n"
+        context += "\n".join([result["information"] for result in results])
 
         # Thêm context vào messages, sửa content nếu muốn
         messages.append({
@@ -784,7 +911,7 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        response = FIX_ME
+        response = get_llm_response(messages)
 
         sentences = response.split('. ')
         for sentence in sentences:
@@ -818,8 +945,7 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
                 "content": f"Question: {query}\n\nContexts: {context}\n\nAnswer: {sentence.strip()}"
             })
             # Gọi  API để đánh giá độ nhạy cảm
-            sensitivity_response = FIX_ME
-            sensitivity_reply = sensitivity_response.choices[0].message.content.strip()
+            sensitivity_reply = get_llm_response(messages_sensitivity)
             if sensitivity_reply == "0":
                 hits += 1
         total_sensitivity += hits / len(sentences) if len(sentences) > 0 else 0
