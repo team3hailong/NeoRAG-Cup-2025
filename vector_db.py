@@ -5,9 +5,11 @@ from qdrant_client import QdrantClient
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from qdrant_client import models as qdrant_models
+import chromadb
 load_dotenv()
 import os
 
+# qdrant < mongodb < chromadb (supabase cần tạo bảng thủ công)
 
 # Các em có thể tự thêm vector database mới hoặc dùng các database có sẵn
 class VectorDatabase:
@@ -16,10 +18,7 @@ class VectorDatabase:
         if self.db_type == "mongodb":
             self.client = MongoClient(os.getenv("MONGODB_URI"))
         elif self.db_type == "chromadb":
-            self.client = HttpClient(
-                host="localhost", 
-                port=8123
-            )
+            self.client = chromadb.Client()
         elif self.db_type == "qdrant":
             self.client = QdrantClient(
                 url=os.getenv("QDRANT_URL"),
@@ -182,11 +181,25 @@ class VectorDatabase:
             raise ValueError("Unsupported database type")
     def count_documents(self, collection_name: str) -> int:
         if self.db_type == "mongodb":
-            db = self.client.get_database("vector_db")  # Đảm bảo đúng tên DB
+            db = self.client.get_database("vector_db")
             collection = db[collection_name]
             return collection.count_documents({})
+
+        elif self.db_type == "chromadb":
+            collection = self.client.get_or_create_collection(name=collection_name)
+            return collection.count()
+
+        elif self.db_type == "qdrant":
+            result = self.client.count(collection_name=collection_name, exact=True)
+            return result.count
+
+        elif self.db_type == "supabase":
+            data = self.client.table(collection_name).select("id", count="exact").execute()
+            return data.count
+
         else:
-            raise NotImplementedError("count_documents chỉ hỗ trợ MongoDB trong phiên bản này.")
+            raise NotImplementedError("Vector DB type chưa hỗ trợ: " + self.db_type)
+
     def drop_collection(self, collection_name: str):
         if self.db_type == "mongodb":
             db = self.client.get_database("vector_db")
