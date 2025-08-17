@@ -8,6 +8,7 @@ __pycache__/
 *.pyd
 
 # Distribution / packaging
+.github/
 build/
 dist/
 eggs/
