@@ -19,7 +19,7 @@ class Embeddings:
                 api_key="ollama"
             )
         elif type == "sentence_transformers":
-            self.client = SentenceTransformer(model_name)
+            self.client = SentenceTransformer(model_name, trust_remote_code=True)
         elif type == "gemini":
             self.client = genai.Client(
                 api_key=os.getenv("GEMINI_API_KEY")
