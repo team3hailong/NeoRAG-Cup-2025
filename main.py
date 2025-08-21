@@ -4,6 +4,7 @@ from vector_db import VectorDatabase
 import pandas as pd
 import openai
 import os
+from rerank import Reranker
 
 doc = Document("CLB_PROPTIT.docx")
 
@@ -16,7 +17,7 @@ vector_db = VectorDatabase(db_type="chromadb")
 # - OpenAI: model_name="text-embedding-3-large", type="openai" 
 # - Ollama: model_name="nomic-embed-text", type="ollama"
 # - Sentence Transformers: model_name="BAAI/bge-m3", type="sentence_transformers"
-embedding = Embeddings(model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers")
+embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
 # TODO: Embedding từng document trong file CLB_PROPTIT.docx và lưu vào DB. 
 # Code dưới là sử dụng mongodb, các em có thể tự sửa lại cho phù hợp với DB mà mình đang dùng
@@ -49,4 +50,4 @@ from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answe
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=5))
+print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, use_reranker=True, k=5))
