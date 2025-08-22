@@ -43,34 +43,14 @@ MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemini-2.5-pro")
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
     try:
-        if "gemini" in model_name.lower():
-            # Convert OpenAI format to Gemini format
-            system_content = ""
-            user_content = ""
-            
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_content = msg["content"]
-                elif msg["role"] == "user":
-                    user_content = msg["content"]
-            
-            # Combine system and user messages for Gemini
-            combined_prompt = f"{system_content}\n\nUser: {user_content}"
-            
-            response = client.models.generate_content(
-                model=model_name,
-                contents=combined_prompt
-            )
-            return response.text
-        else:
-            # OpenAI format (fallback)
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                temperature=0.1,  
-                max_tokens=1000   
-            )
-            return response.choices[0].message.content.strip()
+        # Use standard chat completion endpoint for both OpenAI and local Ollama/Gemini
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=1000
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error calling LLM: {e}")
         return ""

@@ -16,8 +16,8 @@ vector_db = VectorDatabase(db_type="chromadb")
 # - Gemini: model_name="text-embedding-004", type="gemini"
 # - OpenAI: model_name="text-embedding-3-large", type="openai" 
 # - Ollama: model_name="nomic-embed-text", type="ollama"
-# - Sentence Transformers: model_name="BAAI/bge-m3", type="sentence_transformers"
-embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
+# - Sentence Transformers: model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers"
+embedding = Embeddings(model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers")
 
 reranker = Reranker() if True else None
 
@@ -47,9 +47,9 @@ else:
 
 from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answer, hit_k, recall_k, precision_k
 
-# df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
-# df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
+df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
+# df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker) # đặt là True nếu là tập train, False là tập test
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
  
-print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, reranker, k=5))
+# print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, reranker, k=5))
