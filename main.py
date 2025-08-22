@@ -19,6 +19,8 @@ vector_db = VectorDatabase(db_type="chromadb")
 # - Sentence Transformers: model_name="BAAI/bge-m3", type="sentence_transformers"
 embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
+reranker = Reranker() if True else None
+
 # TODO: Embedding từng document trong file CLB_PROPTIT.docx và lưu vào DB. 
 # Code dưới là sử dụng mongodb, các em có thể tự sửa lại cho phù hợp với DB mà mình đang dùng
 #--------------------Code Lưu Embedding Document vào DB--------------------------
@@ -49,5 +51,5 @@ from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answe
 # df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
-
-print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, use_reranker=True, k=5))
+ 
+print("Hit@5:", hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, reranker, k=5))

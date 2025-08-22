@@ -35,6 +35,8 @@ class Reranker:
         self.reranker = FlagReranker(model_name, use_fp16=use_fp16, device=device, trust_remote_code=True)
         self.normalize = normalize
         self.device = device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("Using device:", device)
 
     def __call__(self, query: str, passages: list[str]) -> tuple[list[float], list[str]]:
         # Tạo cặp [query, passage] cho mỗi passage
@@ -42,8 +44,6 @@ class Reranker:
 
         scores = self.reranker.compute_score(query_passage_pairs, normalize=self.normalize)
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print("Using device:", device)
         # Sắp xếp passage theo điểm số giảm dần
         ranked_data = sorted(zip(scores, passages), key=lambda x: x[0], reverse=True)
         ranked_scores, ranked_passages = zip(*ranked_data)

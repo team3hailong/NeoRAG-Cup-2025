@@ -6,12 +6,11 @@ from google import genai
 from rerank import Reranker
 
 # Helper to retrieve and optionally rerank results
-def retrieve_and_rerank(query, embedding, vector_db, use_reranker, k):
-    reranker = Reranker() if use_reranker else None
+def retrieve_and_rerank(query, embedding, vector_db, reranker, k):
     user_embedding = embedding.encode(query)
-    initial_limit = k * 2 if use_reranker else k
+    initial_limit = k * 2 if reranker else k
     results = vector_db.query("information", user_embedding, limit=initial_limit)
-    if use_reranker and reranker and results:
+    if reranker and results:
         passages = [res['information'] for res in results]
         ranked_scores, ranked_passages = reranker(query, passages)
         reranked_results = []
@@ -78,7 +77,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
 
 # Nên chạy từng hàm từ đoạn này để test
 
-def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, use_reranker=False, k=5):
+def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train_data_proptit)
 
@@ -91,7 +90,7 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, use_r
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
          
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -107,7 +106,7 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, use_r
 
 
 # Hàm recall@k
-def recall_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
+def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -122,7 +121,7 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=Fa
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Embedding câu query
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -139,7 +138,7 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=Fa
 
 
 # Hàm precision@k
-def precision_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
+def precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -153,7 +152,7 @@ def precision_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker
         user_embedding = embedding.encode(query)
 
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -174,16 +173,16 @@ def precision_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker
 
 
 # Hàm f1@k
-def f1_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
-    precision = precision_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker, k)
-    recall = recall_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker, k)
+def f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+    precision = precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k)
+    recall = recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k)
     if precision + recall == 0:
         return 0
     return 2 * (precision * recall) / (precision + recall)
 
 # Hàm MAP@k
 
-def map_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
+def map_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -196,7 +195,7 @@ def map_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -221,7 +220,7 @@ def map_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False
     return total_map / len(df_train)
 
 # Hàm MRR@k
-def mrr_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
+def mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -232,7 +231,7 @@ def mrr_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -276,7 +275,7 @@ def similarity(embedding1, embedding2):
     return (cos_sim + 1) / 2
 
 
-def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=False, k=5):
+def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -289,7 +288,7 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, use_reranker=Fals
         user_embedding = embedding.encode(query)
 
         # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, use_reranker, k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
 
 
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -488,7 +487,7 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
 
 # Hàm tính toán tất cả metrics liên quan đến Retrieval
 
-def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector_db, train):
+def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector_db, train, reranker=None):
     # Tạo ra 1 bảng csv, cột thứ nhất là K value, các cột còn lại là metrics. Sẽ có 3 hàng tương trưng với k = 3, 5, 7
     k_values = [3, 5, 7]
     metrics = {
@@ -507,13 +506,13 @@ def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector
     # Lưu 2 chữ số thập phân cho các metrics
     for k in k_values:
         metrics["K"].append(k)
-        metrics["hit@k"].append(round(hit_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["recall@k"].append(round(recall_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["precision@k"].append(round(precision_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["f1@k"].append(round(f1_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["map@k"].append(round(map_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["mrr@k"].append(round(mrr_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["ndcg@k"].append(round(ndcg_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
+        metrics["hit@k"].append(round(hit_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["recall@k"].append(round(recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["precision@k"].append(round(precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["f1@k"].append(round(f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["map@k"].append(round(map_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["mrr@k"].append(round(mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
+        metrics["ndcg@k"].append(round(ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
         metrics["context_precision@k"].append(round(context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
         metrics["context_recall@k"].append(round(context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
         metrics["context_entities_recall@k"].append(round(context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
@@ -966,7 +965,7 @@ Nhiệm vụ của bạn:
 
 # Hàm để tính toán toàn bộ metrics trong module LLM Answer
 
-def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector_db, train):
+def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector_db, train, reranker=None):
     # Tạo ra 1 bảng csv, cột thứ nhất là K value, các cột còn lại là metrics. Sẽ có 3 hàng tương trưng với k = 3, 5, 7
     k_values = [3, 5, 7]
     metrics = {
