@@ -24,11 +24,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k):
 
 load_dotenv()
 
-# Option 1: OpenAI GPT (bản trả phí)
-# client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-# MODEL_NAME = "gpt-4o-mini"
-
-# Option 2: Ollama (local)
+# Option 1: Ollama (local)
 client = openai.OpenAI(
     base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
     api_key=os.getenv("OLLAMA_API_KEY", "ollama")
@@ -36,7 +32,7 @@ client = openai.OpenAI(
 # Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
 MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemini-2.5-pro")
 
-# Option 3: Gemini Pro 
+# Option 2: Gemini Pro 
 # client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 # MODEL_NAME = "gemini-2.5-flash"
 

@@ -12,14 +12,12 @@ doc = Document("CLB_PROPTIT.docx")
 
 vector_db = VectorDatabase(db_type="chromadb")
 
-# Có thể dùng: 
-# - Gemini: model_name="text-embedding-004", type="gemini"
-# - OpenAI: model_name="text-embedding-3-large", type="openai" 
-# - Ollama: model_name="nomic-embed-text", type="ollama"
-# - Sentence Transformers: model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers"
-embedding = Embeddings(model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers")
+# Có thể dùng:
+# - Backtrack: model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers"
+embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
-reranker = Reranker() if True else None
+# - Backtrack: model_name="BAAI/bge-reranker-v2-m3"
+reranker = Reranker(model_name="namdp-ptit/ViRanker") if True else None
 
 # TODO: Embedding từng document trong file CLB_PROPTIT.docx và lưu vào DB. 
 # Code dưới là sử dụng mongodb, các em có thể tự sửa lại cho phù hợp với DB mà mình đang dùng
