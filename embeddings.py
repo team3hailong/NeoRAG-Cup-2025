@@ -1,3 +1,4 @@
+import torch
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -11,6 +12,9 @@ class Embeddings:
     def __init__(self, model_name, type):
         self.model_name = model_name
         self.type = type
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if self.device == 'cuda':
+            print(f"[Embeddings] Using device: {self.device}")
         if type == "openai":
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         elif type == "ollama":
@@ -19,7 +23,11 @@ class Embeddings:
                 api_key="ollama"
             )
         elif type == "sentence_transformers":
-            self.client = SentenceTransformer(model_name, trust_remote_code=True)
+            self.client = SentenceTransformer(
+                model_name,
+                device=self.device,
+                trust_remote_code=True
+            )
         elif type == "gemini":
             self.client = genai.Client(
                 api_key=os.getenv("GEMINI_API_KEY")

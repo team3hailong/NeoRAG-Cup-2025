@@ -32,11 +32,12 @@ from FlagEmbedding import FlagReranker
 import torch
 class Reranker:
     def __init__(self, model_name: str = "namdp-ptit/ViRanker", use_fp16: bool = True, normalize: bool = True):
-        self.reranker = FlagReranker(model_name, use_fp16=use_fp16)
-        self.normalize = normalize
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        effective_fp16 = use_fp16 and (self.device == "cuda")
+        self.normalize = normalize
+        self.reranker = FlagReranker(model_name, use_fp16=effective_fp16)
         self.reranker.model.to(self.device)
-        print("Using device:", self.device)
+        print("Using device:", self.device, "| FP16:", effective_fp16)
 
     def __call__(self, query: str, passages: list[str]) -> tuple[list[float], list[str]]:
         # Tạo cặp [query, passage] cho mỗi passage

@@ -2,6 +2,7 @@ import pandas as pd
 import openai
 import os
 from dotenv import load_dotenv
+import requests
 from google import genai
 from rerank import Reranker
 
@@ -30,11 +31,11 @@ client = openai.OpenAI(
     api_key=os.getenv("OLLAMA_API_KEY", "ollama")
 )
 # Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
-MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemini-2.5-pro")
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 
 # Option 2: Gemini Pro 
 # client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-# MODEL_NAME = "gemini-2.5-flash"
+# MODEL_NAME = "gemini-1.5-flash"
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
@@ -42,9 +43,9 @@ def get_llm_response(messages, model_name=MODEL_NAME):
         # Use standard chat completion endpoint for both OpenAI and local Ollama/Gemini
         response = client.chat.completions.create(
             model=model_name,
+            reasoning_effort="low",
             messages=messages,
-            temperature=0.1,
-            max_tokens=1000
+            temperature=0.1
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -229,6 +230,7 @@ def mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5
 
 # Hàm NDCG@k
 import numpy as np
+import torch
 def dcg_at_k(relevances, k):
     relevances = np.array(relevances)[:k]
     return np.sum((2**relevances - 1) / np.log2(np.arange(2, len(relevances) + 2)))
@@ -240,15 +242,17 @@ def ndcg_at_k(relevances, k):
     return dcg_at_k(relevances, k) / dcg_max
 
 def similarity(embedding1, embedding2):
-    # Giả sử ta có một hàm để tính độ tương đồng giữa hai embedding
-    # Ở đây ta sẽ sử dụng cosine similarity, chuẩn hóa để score nước về khoảng [0, 1]
-    dot_product = np.dot(embedding1, embedding2)
-    norm1 = np.linalg.norm(embedding1)
-    norm2 = np.linalg.norm(embedding2)
-    if norm1 == 0 or norm2 == 0:
+    # Use torch cosine similarity on appropriate device for performance
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    a = torch.tensor(embedding1, device=device, dtype=torch.float)
+    b = torch.tensor(embedding2, device=device, dtype=torch.float)
+    norm1 = torch.norm(a)
+    norm2 = torch.norm(b)
+    if norm1.item() == 0 or norm2.item() == 0:
         return 0.0
-    cos_sim = dot_product / (norm1 * norm2)
-    return (cos_sim + 1) / 2
+    cos_sim = torch.dot(a, b) / (norm1 * norm2)
+    # Normalize to [0,1]
+    return ((cos_sim + 1) / 2).item()
 
 
 def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
