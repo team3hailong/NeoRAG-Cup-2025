@@ -26,28 +26,37 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k):
 load_dotenv()
 
 # Option 1: Ollama (local)
-client = openai.OpenAI(
-    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-    api_key=os.getenv("OLLAMA_API_KEY", "ollama")
-)
-# Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
-MODEL_NAME = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
+# client = openai.OpenAI(
+#     base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+#     api_key=os.getenv("OLLAMA_API_KEY", "ollama")
+# )
+# # Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
+# MODEL_NAME = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
 
 # Option 2: Gemini Pro 
 # client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 # MODEL_NAME = "gemini-1.5-flash"
 
+from groq import Groq
+
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
+MODEL_NAME="llama3-8b-8192"
+
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
     try:
-        # Use standard chat completion endpoint for both OpenAI and local Ollama/Gemini
         response = client.chat.completions.create(
             model=model_name,
-            reasoning_effort="low",
             messages=messages,
-            temperature=0.1
+            temperature=0.1,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=False,
+            stop=None
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message.content
     except Exception as e:
         print(f"Error calling LLM: {e}")
         return ""
@@ -306,7 +315,7 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=
     return total_ndcg / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Context Precision@k (LLM Judged)
-
+import time
 def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
@@ -314,6 +323,7 @@ def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
     total_precision = 0
 
     for index, row in df_train.iterrows():
+        print(f"Processing query {index+1}/{len(df_train)}: {row['Query'][:50]}...")
         # TODO: Tạo ra LLM Answer, các em hãy tự viết phần system prompt
         messages = [
             {
@@ -370,10 +380,15 @@ Nhiệm vụ của bạn:
             })
             # Gọi API đến LLM Judged
             judged_reply = get_llm_response(messages_judged)
-            if judged_reply == "1":
+            flag = str(judged_reply).strip()
+            if flag == "1":
                 hits += 1
+                print(f"Context {result['title']} is relevant.")
+            else:
+                print(f"Context {result['title']} is not relevant.")
         precision = hits / k if k > 0 else 0
         total_precision += precision
+        time.sleep(1)
     return total_precision / len(df_train) if len(df_train) > 0 else 0
 
 
