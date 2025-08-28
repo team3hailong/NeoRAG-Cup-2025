@@ -42,7 +42,7 @@ from groq import Groq
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
-MODEL_NAME="llama3-8b-8192"
+MODEL_NAME="qwen/qwen3-32b"
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
@@ -363,29 +363,28 @@ Nhiệm vụ của bạn:
         # Gọi  API để lấy câu trả lời
         reply = get_llm_response(messages)
 
-        # Đẩy các đoạn văn được retrieved và câu trả lời của LLM vào một LLM Judged context với prompt system
-        # LLM Judged context
-        for result in results:
-            # NOTE: Các em có thể chỉnh messages_judged nếu muốn
-            messages_judged = [
-                {
-                    "role": "system",
-                    "content": """Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. Bạn sẽ được cung cấp một ngữ cảnh, một câu hỏi và một câu trả lời từ một mô hình AI. Nhiệm vụ của bạn là đánh giá câu trả lời dựa trên ngữ cảnh và câu hỏi. Nếu ngữ cảnh và câu hỏi cung cấp đủ thông tin hoặc chỉ cần một phần thông tin để trả lời câu hỏi, hãy đánh giá câu trả lời là 1. Nếu không, hãy đánh giá là 0. Hãy đọc thật kĩ ngữ cảnh, chỉ cần ngữ cảnh có một phần thông tin để trả lời cho một phần của câu hỏi thì cũng đánh giá là 1. Nếu ngữ cảnh không liên quan gì đến câu hỏi, hãy đánh giá là 0. LƯU Ý: Chỉ trả lời 1 hoặc 0, không giải thích gì thêm."""
-                }
-            ]
-            # TODO: "content" sẽ lưu ngữ cảnh, câu hỏi, câu trả lời
-            messages_judged.append({
-                "role": "user",
-                "content": f"Ngữ cảnh: {result['information']}\n\nCâu hỏi: {query}\n\nCâu trả lời: {reply}"
-            })
-            # Gọi API đến LLM Judged
-            judged_reply = get_llm_response(messages_judged)
-            flag = str(judged_reply).strip()
-            if flag == "1":
-                hits += 1
-                print(f"Context {result['title']} is relevant.")
-            else:
-                print(f"Context {result['title']} is not relevant.")
+        system_judge = {
+            "role": "system",
+            "content": "Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. "
+                      "Bạn sẽ được cung cấp một câu hỏi, một câu trả lời, và danh sách ngữ cảnh. "
+                      "Nhiệm vụ: đánh giá mức độ liên quan của mỗi ngữ cảnh với câu trả lời. "
+                      "Trả về duy nhất một chuỗi gồm {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan, 0 nếu không, cấm đưa ra thêm thông tin."
+        }
+        
+        context_sections = results
+        user_content = f"Câu hỏi: {query}\nCâu trả lời: {reply}\n\nNgữ cảnh:\n"
+        for idx, res in enumerate(context_sections, 1):
+            user_content += f"{idx}. {res['information']}\n"
+        user_content += f"\nHãy đánh giá mức độ liên quan cho mỗi ngữ cảnh, trả lời chuỗi gồm {k} ký tự 1 hoặc 0 theo thứ tự trên, không giải thích."
+        messages_judged = [system_judge, {"role": "user", "content": user_content}]
+        judged_reply = get_llm_response(messages_judged)
+        raw = str(judged_reply)
+        # Filter to only '0' or '1' characters and take first k flags
+        flags = ''.join([c for c in raw if c in '01'])[:k]
+        hits = sum(1 for f in flags if f == '1')
+        # Debug: print extracted flags and hits count
+        print(flags, hits)
+
         precision = hits / k if k > 0 else 0
         total_precision += precision
         time.sleep(1)
