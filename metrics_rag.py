@@ -4,6 +4,7 @@ import openai
 import os
 from dotenv import load_dotenv
 import requests
+import time
 from google import genai
 from rerank import Reranker
 
@@ -47,20 +48,26 @@ MODEL_NAME="meta-llama/llama-4-maverick-17b-128e-instruct"
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
-    try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            temperature=0.1,
-            max_completion_tokens=512,
-            top_p=1,
-            stream=False,
-            stop=None
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"Error calling LLM: {e}")
-        return ""
+    max_retries = 3
+    backoff = 1
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=0.4,
+                max_completion_tokens=848,
+                top_p=1,
+                stream=False,
+                stop=None
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error calling LLM (attempt {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                time.sleep(backoff)
+                backoff *= 2
+    return ""
 
 # Nên chạy từng hàm từ đoạn này để test
 
@@ -316,10 +323,14 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=
     return total_ndcg / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Context Precision@k (LLM Judged)
-import time
 def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
+    
+    # Chỉ lấy 20 hàng để test nhanh
+    sample_size = 20
+    df_train = df_train.head(sample_size)
+    print(f"Testing with {len(df_train)} queries out of total {sample_size * 5} queries")
 
     total_precision = 0
 
@@ -369,7 +380,7 @@ Nhiệm vụ của bạn:
             "content": "Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. "
                       "Bạn sẽ được cung cấp một câu hỏi, một câu trả lời, và danh sách ngữ cảnh. "
                       "Nhiệm vụ: đánh giá mức độ liên quan của mỗi ngữ cảnh với câu trả lời. "
-                      "Trả về duy nhất một chuỗi gồm {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan, 0 nếu không, cấm đưa ra thêm thông tin hay giải thích."
+                      f"Trả về một chuỗi liền mạch gồm {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan, 0 nếu không, sắp xếp theo đúng thứ tự các ngữ cảnh và giải thích ngắn gọn bằng duy nhất 1 câu ở bên dưới."
         }
         
         context_sections = results
