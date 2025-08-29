@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import openai
 import os
+import ast
 from dotenv import load_dotenv
 import requests
 import time
@@ -55,7 +56,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                temperature=0.4,
+                temperature=0.35,
                 max_completion_tokens=848,
                 top_p=1,
                 stream=False,
@@ -414,13 +415,15 @@ Nhiệm vụ của bạn:
 def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
+    # Sample a subset for faster testing / stable evaluation (same behavior as context_precision_k)
+    sample_size = 20
+    df_train = df_train.head(sample_size)
+    print(f"Testing context_recall_k with {len(df_train)} queries (sample_size={sample_size})")
 
     total_recall = 0
 
     for index, row in df_train.iterrows():
-        hits = 0
         query = row['Query']
-        ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
         user_embedding = embedding.encode(query)
 
@@ -429,36 +432,56 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         reply = row['Ground truth answer']
         
 
-        # NOTE: Các em có thể thay đổi messages_judged nếu muốn 
-        for result in results:
-            messages_judged = [
-                {
-                    "role": "system",
-                    "content": """Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. Bạn sẽ được cung cấp một ngữ cảnh, một câu hỏi và một câu trả lời đã được chuyên gia trả lời cho câu hỏi (đây là câu trả lời chính xác). Nhiệm vụ của bạn là đánh giá ngữ cảnh dựa trên câu hỏi và câu trả lời. Nếu ngữ cảnh và câu hỏi cung cấp đủ thông tin hoặc chỉ cần một phần thông tin để trả lời câu hỏi, hãy đánh giá ngữ cảnh là 1. Nếu không, hãy đánh giá là 0. Hãy đọc thật kĩ ngữ cảnh, chỉ cần ngữ cảnh có một phần thông tin để trả lời cho một phần của câu hỏi thì cũng đánh giá là 1. Nếu ngữ cảnh không liên quan gì đến câu hỏi, hãy đánh giá là 0. LƯU Ý: Chỉ trả lời 1 hoặc 0, không giải thích gì thêm."""
-                }
-            ]
-            messages_judged.append({
-                "role": "user",
-                "content": f"Ngữ cảnh: {result['information']}\n\nCâu hỏi: {query}\n\nCâu trả lời chính xác: {reply}"
-            })
+        # Build a single judge prompt that asks for a k-length 0/1 string (no explanation)
+        system_judge = {
+            "role": "system",
+            "content": (
+                "Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. "
+                "Bạn sẽ được cung cấp một câu hỏi, một câu trả lời chính xác (ground-truth), và một danh sách ngữ cảnh. "
+                "Nhiệm vụ: cho biết mỗi ngữ cảnh có đủ thông tin (hoặc một phần thông tin) để trả lời câu hỏi dựa trên câu trả lời chính xác hay không. "
+                "Trả về một chuỗi gồm chính xác {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan/useful, 0 nếu không, theo đúng thứ tự các ngữ cảnh. "
+                "KHÔNG giải thích thêm, chỉ trả về chuỗi 0/1."
+            )
+        }
 
-            judged_reply = get_llm_response(messages_judged)
-            if judged_reply == "1":
-                hits += 1
+        user_content = f"Câu hỏi: {query}\nCâu trả lời chính xác: {reply}\n\nNgữ cảnh:\n"
+        for idx, res in enumerate(results, 1):
+            user_content += f"{idx}. {res['information']}\n"
+
+        messages_judged = [system_judge, {"role": "user", "content": user_content}]
+        judged_reply = get_llm_response(messages_judged)
+
+        raw = str(judged_reply)
+        # Try to extract a k-length binary string
+        match = re.search(rf'[01]{{{k}}}', raw)
+        if match:
+            flags = match.group(0)
+        else:
+            tmp = ''.join(c for c in raw if c in '01')
+            flags = (tmp + '0' * k)[:k]
+
+        hits = flags.count('1')
         recall = hits / k if k > 0 else 0
         total_recall += recall
+        # debug
+        print(f"Query {index+1}/{len(df_train)} - Flags: {flags} - Hits: {hits} - Recall: {recall:.3f}")
+        time.sleep(1)
+
     return total_recall / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Context Entities Recall@k (LLM Judged)
 def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
+    # Sample subset for faster testing
+    sample_size = 20
+    df_train = df_train.head(sample_size)
+    print(f"Testing context_entities_recall_k with {len(df_train)} queries (sample_size={sample_size})")
 
     total_recall = 0
     for index, row in df_train.iterrows():
         hits = 0
         query = row['Query']
-        ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
         user_embedding = embedding.encode(query)
 
@@ -494,6 +517,9 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
                     hits += 1
                     entities.remove(entity.strip())
         total_recall += hits / tmp if tmp > 0 else 0
+        print(f"Query {index+1}/{len(df_train)} - Entities extracted: {tmp} - Hits: {hits}")
+        time.sleep(1)
+
     return total_recall / len(df_train) if len(df_train) > 0 else 0
 
 
