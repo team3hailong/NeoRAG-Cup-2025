@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 import openai
 import os
 from dotenv import load_dotenv
@@ -42,7 +43,7 @@ from groq import Groq
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
-MODEL_NAME="qwen/qwen3-32b"
+MODEL_NAME="meta-llama/llama-4-maverick-17b-128e-instruct"
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
 def get_llm_response(messages, model_name=MODEL_NAME):
@@ -51,7 +52,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
             model=model_name,
             messages=messages,
             temperature=0.1,
-            max_completion_tokens=1024,
+            max_completion_tokens=512,
             top_p=1,
             stream=False,
             stop=None
@@ -368,7 +369,7 @@ Nhiệm vụ của bạn:
             "content": "Bạn là một trợ lý AI chuyên đánh giá độ chính xác của các câu trả lời dựa trên ngữ cảnh được cung cấp. "
                       "Bạn sẽ được cung cấp một câu hỏi, một câu trả lời, và danh sách ngữ cảnh. "
                       "Nhiệm vụ: đánh giá mức độ liên quan của mỗi ngữ cảnh với câu trả lời. "
-                      "Trả về duy nhất một chuỗi gồm {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan, 0 nếu không, cấm đưa ra thêm thông tin."
+                      "Trả về duy nhất một chuỗi gồm {k} ký tự, mỗi ký tự là 1 nếu ngữ cảnh tương ứng liên quan, 0 nếu không, cấm đưa ra thêm thông tin hay giải thích."
         }
         
         context_sections = results
@@ -379,11 +380,18 @@ Nhiệm vụ của bạn:
         messages_judged = [system_judge, {"role": "user", "content": user_content}]
         judged_reply = get_llm_response(messages_judged)
         raw = str(judged_reply)
-        # Filter to only '0' or '1' characters and take first k flags
-        flags = ''.join([c for c in raw if c in '01'])[:k]
-        hits = sum(1 for f in flags if f == '1')
-        # Debug: print extracted flags and hits count
-        print(flags, hits)
+        # Dùng regex để tìm chuỗi đúng định dạng
+        match = re.search(rf'[01]{{{k}}}', raw)
+        if match:
+            flags = match.group(0)
+        else:
+            # Fallback: điền 0 bù
+            tmp = ''.join(c for c in raw if c in '01')
+            flags = (tmp + '0' * k)[:k]
+        hits = flags.count('1')
+        # Debug
+        print(f"Judged reply: {judged_reply}")
+        print(f"Flags: {flags}, Hits: {hits}")
 
         precision = hits / k if k > 0 else 0
         total_precision += precision
