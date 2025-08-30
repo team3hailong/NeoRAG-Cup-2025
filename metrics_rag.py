@@ -8,23 +8,85 @@ import requests
 import time
 from google import genai
 from rerank import Reranker
+from query_expansion import QueryExpansion
 
-# Helper to retrieve and optionally rerank results
-def retrieve_and_rerank(query, embedding, vector_db, reranker, k):
-    user_embedding = embedding.encode(query)
-    initial_limit = k * 2 if reranker else k
-    results = vector_db.query("information", user_embedding, limit=initial_limit)
-    if reranker and results:
-        passages = [res['information'] for res in results]
+# Helper to retrieve and optionally rerank results with query expansion
+def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
+    """
+    Enhanced retrieval function với Query Expansion techniques
+    
+    Args:
+        query: Câu hỏi gốc
+        embedding: Model embedding
+        vector_db: Vector database
+        reranker: Reranking model (optional)
+        k: Số lượng documents cần lấy
+        use_query_expansion: Có sử dụng query expansion hay không
+    """
+    all_results = []
+    seen_docs = set()
+    
+    if use_query_expansion:
+        # Khởi tạo Query Expansion
+        query_expander = QueryExpansion()
+        
+        # Mở rộng câu hỏi bằng tất cả các kỹ thuật
+        expanded_queries = query_expander.expand_query(
+            query, 
+            techniques=["rewriting", "decomposition", "synonym", "context", "multi_perspective"],
+            max_expansions=6  # Giới hạn để tránh quá nhiều queries
+        )
+        
+        # Xếp hạng các câu hỏi mở rộng theo độ tương đồng
+        ranked_queries = query_expander.rank_expanded_queries(query, expanded_queries, embedding)
+        
+        # Weight để ưu tiên các câu hỏi có độ tương đồng cao hơn
+        weights = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]  # Trọng số giảm dần
+        
+        for i, exp_query in enumerate(ranked_queries):
+            weight = weights[i] if i < len(weights) else 0.2
+            
+            # Tạo embedding cho câu hỏi mở rộng
+            user_embedding = embedding.encode(exp_query)
+            
+            # Retrieve với limit cao hơn để có nhiều lựa chọn
+            initial_limit = k * 3 if reranker else k * 2
+            results = vector_db.query("information", user_embedding, limit=initial_limit)
+            
+            # Thêm weight score và tránh duplicate
+            for result in results:
+                doc_id = result.get('title', str(hash(result['information'])))
+                if doc_id not in seen_docs:
+                    # Thêm weighted score
+                    result['expansion_weight'] = weight
+                    result['source_query'] = exp_query
+                    all_results.append(result)
+                    seen_docs.add(doc_id)
+        
+        # Sort theo expansion_weight và giữ top k*2 results
+        all_results.sort(key=lambda x: x.get('expansion_weight', 0), reverse=True)
+        all_results = all_results[:k*2]
+        
+    else:
+        # Retrieval truyền thống không có query expansion
+        user_embedding = embedding.encode(query)
+        initial_limit = k * 2 if reranker else k
+        all_results = vector_db.query("information", user_embedding, limit=initial_limit)
+    
+    # Apply reranking nếu có
+    if reranker and all_results:
+        passages = [res['information'] for res in all_results]
         ranked_scores, ranked_passages = reranker(query, passages)
+        
         reranked_results = []
         for rp in ranked_passages[:k]:
-            for res in results:
+            for res in all_results:
                 if res['information'] == rp:
                     reranked_results.append(res)
                     break
         return reranked_results
-    return results[:k]
+    
+    return all_results[:k]
 
 load_dotenv()
 
@@ -56,7 +118,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                temperature=0.35,
+                temperature=0.0,
                 max_completion_tokens=848,
                 top_p=1,
                 stream=False,
@@ -72,7 +134,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
 
 # Nên chạy từng hàm từ đoạn này để test
 
-def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reranker=None, k=5):
+def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train_data_proptit)
 
@@ -84,8 +146,8 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reran
         ground_truth_doc = row['Ground truth document']
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
          
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -101,7 +163,7 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reran
 
 
 # Hàm recall@k
-def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -115,8 +177,8 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, 
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Embedding câu query
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -133,7 +195,7 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, 
 
 
 # Hàm precision@k
-def precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+def precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -146,8 +208,8 @@ def precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=Non
         # Tạo embedding cho câu hỏi của người dùng
         user_embedding = embedding.encode(query)
 
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -168,16 +230,16 @@ def precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=Non
 
 
 # Hàm f1@k
-def f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
-    precision = precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k)
-    recall = recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k)
+def f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
+    precision = precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion)
+    recall = recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion)
     if precision + recall == 0:
         return 0
     return 2 * (precision * recall) / (precision + recall)
 
 # Hàm MAP@k
 
-def map_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+def map_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -189,8 +251,8 @@ def map_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -215,7 +277,7 @@ def map_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5
     return total_map / len(df_train)
 
 # Hàm MRR@k
-def mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+def mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -225,8 +287,8 @@ def mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5
         query = row['Query']
         ground_truth_doc = row['Ground truth document']
         # Tạo embedding cho câu hỏi của người dùng
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -273,7 +335,7 @@ def similarity(embedding1, embedding2):
     return ((cos_sim + 1) / 2).item()
 
 
-def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5):
+def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -285,8 +347,8 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=
         # Tạo embedding cho câu hỏi của người dùng
         user_embedding = embedding.encode(query)
 
-        # Retrieve top-k (with optional reranking)
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k)
+        # Retrieve top-k (with optional reranking and query expansion)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
 
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -324,7 +386,7 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=
     return total_ndcg / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Context Precision@k (LLM Judged)
-def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
     
@@ -357,13 +419,10 @@ Nhiệm vụ của bạn:
         ]
         hits = 0
         query = row['Query']
-        ground_truth_doc = row['Ground truth document']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
 
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
-        
+        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu với optional reranking/query expansion
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
+         
         # TODO: viết câu query của người dùng (bao gồm document retrieval và câu query)
         context = "Content từ các tài liệu liên quan:\n"
         context += "\n".join([result["information"] for result in results])
@@ -412,7 +471,7 @@ Nhiệm vụ của bạn:
 
 
 # Hàm Context Recall@k (LLM Judged)
-def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
     # Sample a subset for faster testing / stable evaluation (same behavior as context_precision_k)
@@ -424,11 +483,9 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
 
     for index, row in df_train.iterrows():
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
         reply = row['Ground truth answer']
         
 
@@ -470,7 +527,7 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
     return total_recall / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Context Entities Recall@k (LLM Judged)
-def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
     # Sample subset for faster testing
@@ -482,11 +539,9 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
     for index, row in df_train.iterrows():
         hits = 0
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
         reply = row['Ground truth answer']
         # Trích xuất các thực thể từ Ground truth answer bằng LLM
         # NOTE: Các em có thể thay đổi messages_entities nếu muốn
@@ -507,8 +562,15 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
             "content": f"Câu trả lời: {reply}"
         })
         # Gọi  API để trích xuất các thực thể
-        entities = get_llm_response(messages_entities)
-        entities = eval(entities) if entities.startswith('[') else []
+        entities_str = get_llm_response(messages_entities)
+        try:
+            entities = ast.literal_eval(entities_str.strip())
+            if not isinstance(entities, list):
+                entities = []
+        except Exception:
+            # Fallback: extract first bracketed list and parse
+            match = re.search(r'\[.*?\]', entities_str, re.DOTALL)
+            entities = ast.literal_eval(match.group(0))
         tmp = len(entities)
         for result in results:
             context = result['information']
@@ -526,7 +588,7 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
 
 # Hàm tính toán tất cả metrics liên quan đến Retrieval
 
-def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector_db, train, reranker=None):
+def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector_db, train, reranker=None, use_query_expansion=True):
     # Tạo ra 1 bảng csv, cột thứ nhất là K value, các cột còn lại là metrics. Sẽ có 3 hàng tương trưng với k = 3, 5, 7
     k_values = [3, 5, 7]
     metrics = {
@@ -545,23 +607,24 @@ def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector
     # Lưu 2 chữ số thập phân cho các metrics
     for k in k_values:
         metrics["K"].append(k)
-        metrics["hit@k"].append(round(hit_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["recall@k"].append(round(recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["precision@k"].append(round(precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["f1@k"].append(round(f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["map@k"].append(round(map_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["mrr@k"].append(round(mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["ndcg@k"].append(round(ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k), 2))
-        metrics["context_precision@k"].append(round(context_precision_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["context_recall@k"].append(round(context_recall_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["context_entities_recall@k"].append(round(context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
+        metrics["hit@k"].append(round(hit_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["recall@k"].append(round(recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["precision@k"].append(round(precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["f1@k"].append(round(f1_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["map@k"].append(round(map_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["mrr@k"].append(round(mrr_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["ndcg@k"].append(round(ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["context_precision@k"].append(round(context_precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["context_recall@k"].append(round(context_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
+        metrics["context_entities_recall@k"].append(round(context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker, k, use_query_expansion), 2))
     # Chuyển đổi metrics thành DataFrame
     metrics_df = pd.DataFrame(metrics)
     # Lưu DataFrame vào file csv
+    filename_suffix = "_with_query_expansion" if use_query_expansion else "_baseline"
     if train:
-        metrics_df.to_csv("metrics_retrieval_train.csv", index=False)
+        metrics_df.to_csv(f"metrics_retrieval_train{filename_suffix}.csv", index=False)
     else:
-        metrics_df.to_csv("metrics_retrieval_test.csv", index=False)
+        metrics_df.to_csv(f"metrics_retrieval_test{filename_suffix}.csv", index=False)
     return metrics_df
 
 # Các hàm đánh giá LLM Answer
