@@ -33,8 +33,8 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
         # Mở rộng câu hỏi bằng tất cả các kỹ thuật
         expanded_queries = query_expander.expand_query(
             query, 
-            techniques=["rewriting", "decomposition", "synonym", "context", "multi_perspective"],
-            max_expansions=6  # Giới hạn để tránh quá nhiều queries
+            techniques=["rewriting", "decomposition", "synonym", "context", "multi_perspective", "document_structure"],
+            max_expansions=8 
         )
         
         # Xếp hạng các câu hỏi mở rộng theo độ tương đồng
@@ -389,10 +389,10 @@ def ndcg_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=
 def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, k=5, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
-    
-    # Chỉ lấy 20 hàng để test nhanh
-    sample_size = 20
-    df_train = df_train.head(sample_size)
+
+    # Chỉ lấy 30 hàng để test nhanh
+    sample_size = 30
+    df_train = df_train.tail(sample_size)
     print(f"Testing with {len(df_train)} queries out of total {sample_size * 5} queries")
 
     total_precision = 0
@@ -447,6 +447,7 @@ Nhiệm vụ của bạn:
         user_content = f"Câu hỏi: {query}\nCâu trả lời: {reply}\n\nNgữ cảnh:\n"
         for idx, res in enumerate(context_sections, 1):
             user_content += f"{idx}. {res['information']}\n"
+            print(f"Context {idx}: {res['information'][:50]}...")
         user_content += f"\nHãy đánh giá mức độ liên quan cho mỗi ngữ cảnh, trả lời chuỗi gồm {k} ký tự 1 hoặc 0 theo thứ tự trên, không giải thích."
         messages_judged = [system_judge, {"role": "user", "content": user_content}]
         judged_reply = get_llm_response(messages_judged)
@@ -504,6 +505,7 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranke
         user_content = f"Câu hỏi: {query}\nCâu trả lời chính xác: {reply}\n\nNgữ cảnh:\n"
         for idx, res in enumerate(results, 1):
             user_content += f"{idx}. {res['information']}\n"
+            print(f"Context {idx}: {res['information'][:50]}...")
 
         messages_judged = [system_judge, {"role": "user", "content": user_content}]
         judged_reply = get_llm_response(messages_judged)

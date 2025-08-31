@@ -60,7 +60,8 @@ class QueryExpansion:
             ],
             "hoc_tap": [
                 'học tập', 'learning', 'đào tạo', 'training', 'giáo dục', 'education',
-                'khóa học', 'course', 'lộ trình', 'môn học', 'subject'
+                'khóa học', 'course', 'lộ trình', 'lộ trình học', 'roadmap', 'roadmap học tập',
+                'khung chương trình lập trình', 'kỹ năng lập trình cơ bản', 'môn học', 'subject'
             ],
             "cuoc_thi_giai_thuong": [
                 'cuộc thi', 'contest', 'competition', 'tournament', 'giải thưởng', 'award',
@@ -81,7 +82,14 @@ class QueryExpansion:
             "van_hoa_clb": [
                 'phương châm', 'chia sẻ để cùng nhau phát triển', 'truyền thống',
                 'văn hóa', 'gắn kết', 'đoàn kết', 'tương thân tương ái',
-                'nội quy', 'quy định', 'nghĩa vụ', 'quyền lợi', 'lập trình từ trái tim'
+                'nội quy', 'quy định', 'nghĩa vụ', 'quyền lợi', 'lập trình từ trái tim',
+                'tác phong', 'văn hóa ứng xử', 'quy tắc ứng xử', 'phong cách giao tiếp',
+                'nét văn hóa CLB', 'etiquette', 'manners', 'ứng xử có văn hóa',
+                'trang phục', 'dress code', 'đồng phục', 'quy định trang phục',
+                'sử dụng trụ sở', 'cơ sở vật chất', 'phòng ban', 'phòng họp',
+                'thành viên tiêu biểu', 'tiêu chí', 'điều kiện xét chọn', 
+                'tiêu chuẩn đánh giá', 'cách thức bầu chọn', 'reward', 'recognition',
+                'khen thưởng', 'tuyên dương', 'điểm rèn luyện', 'vi phạm'
             ]
         }
     
@@ -264,15 +272,17 @@ class QueryExpansion:
         Kiến thức ngữ cảnh chi tiết về CLB ProPTIT:
         - ProPTIT được thành lập ngày 9/10/2011 bởi anh Chế Đình Sơn
         - Phương châm: "Chia sẻ để cùng nhau phát triển"
-        - Slogan: "Lập Trình PTIT - Lập trình từ trái tim"
         - Có 6 team dự án: Team AI, Team Mobile, Team Data, Team Game, Team Web, Team Backend
         - Quy trình tuyển thành viên: 3 vòng (CV, Phỏng vấn, Training)
-        - Chỉ tuyển sinh viên năm nhất, khoảng 25 người/năm
+        - Chỉ tuyển sinh viên năm nhất, khoảng 25 người/năm, không biết lập trình cũng có thể tham gia
+        - Lợi ích khi tham gia: kỹ năng lập trình, kỹ năng mềm, 0.1 điểm xét học bổng
         - Lộ trình học: C (training) → C++ → Cấu trúc dữ liệu & Giải thuật → OOP → Java
         - Sự kiện nổi bật: BigGame, SPOJ Tournament, PROCWAR, Code Battle, Game C++, ProGApp
         - Thành viên đạt nhiều giải thưởng: ICPC, AI competitions, Olympic Tin học
         - Thuộc cộng đồng S2B cùng với CLB Multimedia và CLB Nhà sáng tạo game
-        
+        - Tiêu chuẩn: dựa trên học tập, hoạt động và cách tương tác giữa các thành viên với nhau.
+        - ProPTIT và IT PTIT đều là 2 CLB học thuật. Tuy có những hướng đi riêng nhưng cùng chung một mục đích hỗ trợ sinh viên trên con đường học tập. Mỗi hướng đi mà CLB chọn đều tạo nên những màu sắc đặc trưng riêng.
+
         Yêu cầu:
         - Thêm ngữ cảnh cụ thể từ thông tin trên
         - Tạo các biến thể tập trung vào khía cạnh khác nhau
@@ -284,10 +294,6 @@ class QueryExpansion:
         Output: ["Quy trình 3 vòng tuyển thành viên ProPTIT như thế nào?", "Sinh viên năm nhất làm sao để vào CLB Lập trình PTIT?", "Điều kiện tham gia training ProPTIT?", "Cách đăng ký vòng CV cho CLB ProPTIT?"]
         """
         
-        # Đảm bảo không mở rộng trên các trường hợp tên trường lặp lại
-        if re.search(r"\bptitptit\b", query, flags=re.IGNORECASE):
-            # Tránh trùng lặp lỗi từ "ptitPTIT"
-            query = re.sub(r"ptitptit", "ptit", query, flags=re.IGNORECASE)
         user_prompt = f"Mở rộng câu hỏi với ngữ cảnh CLB ProPTIT:\n\nCâu hỏi: {query}"
         
         messages = [
@@ -355,6 +361,56 @@ class QueryExpansion:
         
         return [query]
     
+    def document_structure_expansion(self, query: str) -> List[str]:
+        """
+        Technique 6: Document Structure-Aware Expansion
+        Mở rộng dựa trên cấu trúc và nội dung cụ thể của tài liệu CLB ProPTIT
+        """
+        system_prompt = """Bạn là chuyên gia phân tích cấu trúc tài liệu CLB ProPTIT và hiểu rõ mapping giữa câu hỏi và document.
+        
+        Dựa trên cấu trúc tài liệu CLB ProPTIT, tạo các câu hỏi mở rộng tập trung vào từ khóa chính xác:
+        
+        Cấu trúc tài liệu CLB ProPTIT:
+        - Document 1: Giới thiệu CLB (thành lập, phương châm, slogan)
+        - Document 2-4: Hoạt động, giải thưởng, team dự án  
+        - Document 5-56: Quy trình tuyển thành viên, lợi ích, điều kiện
+        - Document 57-67: Lộ trình học tập (training, C++, CTDL&GT, OOP, Java)
+        - Document 68-87: Sự kiện (BigGame, SPOJ, PROCWAR, Code Battle, etc.)
+        - Document 88-93: Phòng truyền thống, thành viên tiêu biểu
+        - Document 94-99: Quyền lợi, nghĩa vụ, tác phong, văn hóa, khen thưởng
+        
+        Nhiệm vụ: Tạo các câu hỏi mở rộng sử dụng từ khóa chính xác từ tài liệu.
+        
+        Yêu cầu:
+        - Sử dụng từ khóa chính xác từ tài liệu gốc
+        - Tạo các biến thể dựa trên cấu trúc document
+        - Trả về dưới dạng danh sách Python
+        
+        Ví dụ:
+        Input: "Khi tham gia CLB, tác phong và văn hóa ứng xử được quy định thế nào?"
+        Output: ["Quy định về tác phong thành viên CLB", "Văn hóa ứng xử trong CLB ProPTIT", "Nội quy về ăn mặc và giao tiếp", "Quy tắc sử dụng trụ sở CLB", "Nghĩa vụ và quyền lợi thành viên"]
+        """
+        
+        user_prompt = f"Tạo câu hỏi mở rộng dựa trên cấu trúc tài liệu:\n\nCâu hỏi: {query}"
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        response = self._get_llm_response(messages)
+        
+        try:
+            import ast
+            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
+            if list_match:
+                structure_queries = ast.literal_eval(list_match.group())
+                return [query] + structure_queries
+        except:
+            pass
+        
+        return [query]
+    
     def expand_query(self, query: str, techniques: List[str] = None, max_expansions: int = 10) -> List[str]:
         """
         Hàm chính để mở rộng câu truy vấn sử dụng tất cả các kỹ thuật
@@ -368,7 +424,7 @@ class QueryExpansion:
             List[str]: Danh sách câu hỏi đã mở rộng (bao gồm câu gốc)
         """
         if techniques is None:
-            techniques = ["rewriting", "decomposition", "synonym", "context", "multi_perspective"]
+            techniques = ["rewriting", "decomposition", "synonym", "context", "multi_perspective", "document_structure"]
         
         all_expanded = [query]  # Bắt đầu với câu hỏi gốc
         
@@ -393,6 +449,10 @@ class QueryExpansion:
             if "multi_perspective" in techniques:
                 perspectives = self.multi_perspective_expansion(query)
                 all_expanded.extend(perspectives[1:])  # Skip original query
+            
+            if "document_structure" in techniques:
+                structure_aware = self.document_structure_expansion(query)
+                all_expanded.extend(structure_aware[1:])  # Skip original query
         
         except Exception as e:
             print(f"Error in query expansion: {e}")
@@ -505,8 +565,13 @@ def test_query_expansion():
         for i, persp in enumerate(perspectives):
             print(f"   {i+1}. {persp}")
         
-        print("\n6. All Techniques Combined:")
-        all_expanded = expander.expand_query(query, max_expansions=8)
+        print("\n6. Document Structure Expansion:")
+        structure = expander.document_structure_expansion(query)
+        for i, struct in enumerate(structure):
+            print(f"   {i+1}. {struct}")
+        
+        print("\n7. All Techniques Combined:")
+        all_expanded = expander.expand_query(query, max_expansions=10)
         for i, exp in enumerate(all_expanded):
             print(f"   {i+1}. {exp}")
 
