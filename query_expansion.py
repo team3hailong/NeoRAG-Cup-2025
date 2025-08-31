@@ -101,7 +101,7 @@ class QueryExpansion:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
-                    temperature=0.7,  # Tăng temperature để tạo đa dạng
+                    temperature=0.4,  
                     max_completion_tokens=512,
                     top_p=0.9,
                     stream=False,
