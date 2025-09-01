@@ -101,9 +101,9 @@ class QueryExpansion:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
-                    temperature=0.4,  
-                    max_completion_tokens=512,
-                    top_p=0.9,
+                    temperature=0.3,  # Giảm để consistent hơn
+                    max_completion_tokens=256,  # Giảm từ 512 xuống 256
+                    top_p=0.8,  # Giảm để focused hơn
                     stream=False,
                     stop=None
                 )
@@ -115,26 +115,23 @@ class QueryExpansion:
                     backoff *= 2
         return ""
     
-    def query_rewriting(self, query: str, num_variants: int = 3) -> List[str]:
-        """
-        Technique 1: Query Rewriting
-        Tạo ra các cách diễn đạt khác nhau cho cùng một câu hỏi
-        """
-        system_prompt = """Bạn là một chuyên gia ngôn ngữ tiếng Việt, chuyên viết lại câu hỏi với nhiều cách diễn đạt khác nhau.
-        Nhiệm vụ: Viết lại câu hỏi ban đầu thành nhiều phiên bản khác nhau nhưng giữ nguyên ý nghĩa.
+    def combined_llm_expansion(self, query: str) -> List[str]:
+        system_prompt = """Tạo các biến thể câu hỏi cho CLB ProPTIT. Trả về format JSON:
+{"rewrites": [...], "decomposed": [...], "context_aware": [...]}
+
+Yêu cầu:
+- rewrites: 2 cách viết lại khác nhau
+- decomposed: Chia thành câu hỏi con (nếu phức tạp)  
+- context_aware: 2 câu hỏi với ngữ cảnh CLB ProPTIT cụ thể
+
+Ngữ cảnh CLB ProPTIT:
+- Thành lập 9/10/2011, phương châm "Chia sẻ để cùng phát triển"
+- 6 team: AI, Mobile, Data, Game, Web, Backend
+- Quy trình: 3 vòng (CV, PV, Training), chỉ tuyển năm 1
+- Sự kiện: BigGame, SPOJ, PROCWAR, Code Battle
+- Lộ trình: C → C++ → CTDL&GT → OOP → Java"""
         
-        Yêu cầu:
-        - Giữ nguyên ý nghĩa của câu hỏi gốc
-        - Sử dụng từ ngữ đa dạng, phong cách khác nhau (trang trọng, thân thiện, trực tiếp)
-        - Phù hợp với ngữ cảnh CLB Lập trình ProPTIT
-        - Trả về dưới dạng danh sách Python, mỗi phần tử là một cách viết lại
-        
-        Ví dụ:
-        Input: "CLB ProPTIT có những hoạt động gì?"
-        Output: ["Câu lạc bộ ProPTIT tổ chức những sự kiện nào?", "ProPTIT có những chương trình hoạt động gì?", "Các hoạt động của CLB Lập trình ProPTIT là gì?"]
-        """
-        
-        user_prompt = f"Hãy viết lại câu hỏi sau thành {num_variants} phiên bản khác nhau:\n\nCâu hỏi: {query}"
+        user_prompt = f"Câu hỏi: {query}"
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -144,315 +141,290 @@ class QueryExpansion:
         response = self._get_llm_response(messages)
         
         try:
-            # Tìm và parse danh sách Python từ response
+            import json
+            # Tìm JSON trong response
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+                expanded = [query]
+                expanded.extend(result.get("rewrites", []))
+                expanded.extend(result.get("decomposed", []))
+                expanded.extend(result.get("context_aware", []))
+                return expanded
+        except:
+            pass
+        
+        # Fallback to rule-based if LLM fails
+        return self.rule_based_expansion(query)
+    
+    def rule_based_expansion(self, query: str) -> List[str]:
+        """
+        Improved rule-based expansion - hiểu ngữ cảnh tốt hơn
+        """
+        expanded = [query]
+        query_lower = query.lower()
+        
+        # 1. Synonym replacement từ keywords (cẩn thận với context)
+        for category, synonyms in self.proptit_keywords.items():
+            for synonym in synonyms[:2]:  # Giảm số lượng để tránh noise
+                pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
+                if pattern.search(query):
+                    # Chỉ replace nếu có nghĩa trong context
+                    for alternative in synonyms[:1]:  # Chỉ lấy 1 alternative tốt nhất
+                        if alternative.lower() != synonym.lower():
+                            new_query = pattern.sub(alternative, query)
+                            if new_query != query and new_query not in expanded:
+                                expanded.append(new_query)
+                                if len(expanded) >= 3:  # Giảm limit
+                                    return expanded
+                    break
+        
+        # 2. Intent-based template expansion
+        if any(word in query_lower for word in ["làm sao", "như thế nào", "cách"]):
+            base = re.sub(r'\b(làm sao|như thế nào|cách)\s*', '', query, flags=re.IGNORECASE).strip()
+            if base:
+                expanded.append(f"Quy trình {base}")
+        
+        elif any(word in query_lower for word in ["là gì", " gì"]) and "bao nhiêu" not in query_lower:
+            base = re.sub(r'\b(là gì|gì)\s*\??', '', query, flags=re.IGNORECASE).strip()
+            if base:
+                expanded.append(f"Thông tin về {base}")
+        
+        elif any(word in query_lower for word in ["khi nào", "năm nào"]):
+            base = re.sub(r'\b(khi nào|năm nào)\s*', '', query, flags=re.IGNORECASE).strip()
+            if base:
+                expanded.append(f"Thời gian {base}")
+        
+        return list(set(expanded))[:4]  # Giảm limit xuống 4
+    
+    def query_rewriting(self, query: str, num_variants: int = 2) -> List[str]:  # Giảm từ 3 xuống 2
+        """Simplified query rewriting với prompt ngắn gọn"""
+        system_prompt = """Viết lại câu hỏi CLB ProPTIT thành 2 cách khác. Format: ["cách 1", "cách 2"]"""
+        user_prompt = f"Câu hỏi: {query}"
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        response = self._get_llm_response(messages)
+        
+        try:
             import ast
-            # Tìm pattern list trong response
             list_match = re.search(r'\[.*?\]', response, re.DOTALL)
             if list_match:
                 variants = ast.literal_eval(list_match.group())
-                return [query] + variants[:num_variants]  # Bao gồm query gốc
+                return [query] + variants[:num_variants]
             else:
-                # Fallback: tách theo dòng
                 lines = [line.strip().strip('"\'') for line in response.split('\n') if line.strip()]
                 return [query] + lines[:num_variants]
         except:
-            # Fallback đơn giản
             return [query, query.replace("CLB", "Câu lạc bộ"), query.replace("ProPTIT", "Lập trình PTIT")]
     
     def query_decomposition(self, query: str) -> List[str]:
-        """
-        Technique 2: Query Decomposition
-        Phân tách câu hỏi phức tạp thành các câu hỏi con đơn giản
-        """
-        system_prompt = """Bạn là một chuyên gia phân tích câu hỏi, chuyên phân tách câu hỏi phức tạp thành các câu hỏi con đơn giản.
+        # Rule-based decomposition first
+        if ' và ' in query:
+            parts = query.split(' và ')
+            if len(parts) == 2:
+                return [query] + [part.strip() + '?' for part in parts if part.strip()]
         
-        Nhiệm vụ: Phân tích câu hỏi và chia thành các câu hỏi con độc lập, đơn giản hơn.
+        # LLM decomposition cho câu phức tạp
+        if len(query.split()) > 10:  # Chỉ dùng LLM cho câu dài
+            system_prompt = """Chia câu hỏi phức tạp thành câu con đơn giản. Format: ["câu 1", "câu 2"]"""
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Câu hỏi: {query}"}
+            ]
+            
+            response = self._get_llm_response(messages)
+            try:
+                import ast
+                list_match = re.search(r'\[.*?\]', response, re.DOTALL)
+                if list_match:
+                    sub_queries = ast.literal_eval(list_match.group())
+                    return [query] + sub_queries
+            except:
+                pass
         
-        Nguyên tắc:
-        - Mỗi câu hỏi con chỉ tập trung vào một khía cạnh
-        - Câu hỏi con phải đơn giản, dễ hiểu
-        - Tập hợp câu hỏi con phải bao phủ đầy đủ câu hỏi gốc
-        - Phù hợp với ngữ cảnh CLB Lập trình ProPTIT
-        - Trả về dưới dạng danh sách Python
-        
-        Ví dụ:
-        Input: "CLB ProPTIT được thành lập khi nào và có những hoạt động chính nào?"
-        Output: ["CLB ProPTIT được thành lập khi nào?", "CLB ProPTIT có những hoạt động chính nào?"]
-        
-        Input: "Tôi muốn tham gia CLB ProPTIT, cần điều kiện gì và quy trình như thế nào?"
-        Output: ["Điều kiện để tham gia CLB ProPTIT là gì?", "Quy trình tham gia CLB ProPTIT như thế nào?"]
-        """
-        
-        user_prompt = f"Hãy phân tách câu hỏi sau thành các câu hỏi con đơn giản:\n\nCâu hỏi: {query}"
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = self._get_llm_response(messages)
-        
-        try:
-            import ast
-            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-            if list_match:
-                sub_queries = ast.literal_eval(list_match.group())
-                return [query] + sub_queries
-            else:
-                # Fallback
-                lines = [line.strip().strip('"-') for line in response.split('\n') if line.strip() and '?' in line]
-                return [query] + lines[:3]
-        except:
-            return [query]
+        return [query]
     
     def synonym_expansion(self, query: str) -> List[str]:
-        """
-        Technique 3: Synonym/Paraphrase Expansion
-        Mở rộng với từ đồng nghĩa và các cách diễn đạt khác
-        """
         expanded_queries = [query]
         
-        # Thay thế từ đồng nghĩa dựa trên domain keywords, chỉ thay thế khi khớp từ nguyên
+        # Rule-based synonym replacement - nhanh và không tốn token
         for category, synonyms in self.proptit_keywords.items():
-            for synonym in synonyms:
-                # Chỉ khớp khi là từ nguyên (word boundary)
+            for synonym in synonyms[:3]:  # Chỉ check 3 synonym đầu tiên
                 pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
                 if pattern.search(query):
-                    for alternative in synonyms:
+                    for alternative in synonyms[:2]:  # Chỉ lấy 2 alternatives
                         if alternative.lower() != synonym.lower():
                             new_query = pattern.sub(alternative, query)
                             if new_query != query and new_query not in expanded_queries:
                                 expanded_queries.append(new_query)
+                                if len(expanded_queries) >= 4:  # Limit để tránh quá nhiều
+                                    return expanded_queries
+                    break  # Chỉ replace category đầu tiên tìm thấy
         
-        # Sử dụng LLM để tạo thêm paraphrases
-        system_prompt = """Bạn là chuyên gia ngôn ngữ, tạo các cách diễn đạt khác nhau với từ đồng nghĩa.
-        
-        Nhiệm vụ: Tạo 2-3 cách diễn đạt khác bằng cách thay thế từ/cụm từ bằng từ đồng nghĩa.
-        
-        Yêu cầu:
-        - Giữ nguyên ý nghĩa
-        - Sử dụng từ đồng nghĩa tự nhiên trong tiếng Việt
-        - Phù hợp với ngữ cảnh CLB Lập trình
-        - Trả về dưới dạng danh sách Python
-        
-        Ví dụ:
-        Input: "CLB có những thành viên nào?"
-        Output: ["Câu lạc bộ có những người tham gia nào?", "CLB bao gồm những học viên nào?"]
-        """
-        
-        user_prompt = f"Tạo 2-3 cách diễn đạt khác bằng từ đồng nghĩa:\n\nCâu hỏi: {query}"
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = self._get_llm_response(messages)
-        
-        try:
-            import ast
-            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-            if list_match:
-                synonyms = ast.literal_eval(list_match.group())
-                expanded_queries.extend(synonyms)
-        except:
-            pass
-        
-        return list(set(expanded_queries))  # Remove duplicates
+        return expanded_queries
     
     def context_aware_expansion(self, query: str) -> List[str]:
-        """
-        Technique 4: Context-Aware Expansion
-        Mở rộng câu hỏi dựa trên ngữ cảnh cụ thể của CLB ProPTIT
-        """
-        system_prompt = """Bạn là chuyên gia về CLB Lập trình ProPTIT, hiểu rõ về hoạt động, thành viên, và đặc trưng của CLB.
+        expanded = [query]
+        query_lower = query.lower()
         
-        Nhiệm vụ: Mở rộng câu hỏi bằng cách thêm ngữ cảnh cụ thể về CLB ProPTIT.
+        # Phân tích ngữ cảnh câu hỏi dựa trên intent và keywords
         
-        Kiến thức ngữ cảnh chi tiết về CLB ProPTIT:
-        - ProPTIT được thành lập ngày 9/10/2011 bởi anh Chế Đình Sơn
-        - Phương châm: "Chia sẻ để cùng nhau phát triển"
-        - Có 6 team dự án: Team AI, Team Mobile, Team Data, Team Game, Team Web, Team Backend
-        - Quy trình tuyển thành viên: 3 vòng (CV, Phỏng vấn, Training)
-        - Chỉ tuyển sinh viên năm nhất, khoảng 25 người/năm, không biết lập trình cũng có thể tham gia
-        - Lợi ích khi tham gia: kỹ năng lập trình, kỹ năng mềm, 0.1 điểm xét học bổng
-        - Lộ trình học: C (training) → C++ → Cấu trúc dữ liệu & Giải thuật → OOP → Java
-        - Sự kiện nổi bật: BigGame, SPOJ Tournament, PROCWAR, Code Battle, Game C++, ProGApp
-        - Thành viên đạt nhiều giải thưởng: ICPC, AI competitions, Olympic Tin học
-        - Thuộc cộng đồng S2B cùng với CLB Multimedia và CLB Nhà sáng tạo game
-        - Tiêu chuẩn: dựa trên học tập, hoạt động và cách tương tác giữa các thành viên với nhau.
-        - ProPTIT và IT PTIT đều là 2 CLB học thuật. Tuy có những hướng đi riêng nhưng cùng chung một mục đích hỗ trợ sinh viên trên con đường học tập. Mỗi hướng đi mà CLB chọn đều tạo nên những màu sắc đặc trưng riêng.
-
-        Yêu cầu:
-        - Thêm ngữ cảnh cụ thể từ thông tin trên
-        - Tạo các biến thể tập trung vào khía cạnh khác nhau
-        - Sử dụng thuật ngữ chính xác của CLB
-        - Trả về dưới dạng danh sách Python
+        # 1. Câu hỏi về thời gian thành lập, lịch sử
+        if any(word in query_lower for word in ["thành lập", "khi nào", "năm nào", "lịch sử"]):
+            expanded.extend([
+                "CLB ProPTIT được thành lập ngày 9/10/2011",
+                "Lịch sử hình thành CLB ProPTIT",
+                "Người sáng lập CLB ProPTIT"
+            ])
         
-        Ví dụ:
-        Input: "Làm thế nào để tham gia CLB?"
-        Output: ["Quy trình 3 vòng tuyển thành viên ProPTIT như thế nào?", "Sinh viên năm nhất làm sao để vào CLB Lập trình PTIT?", "Điều kiện tham gia training ProPTIT?", "Cách đăng ký vòng CV cho CLB ProPTIT?"]
-        """
+        # 2. Câu hỏi về số lượng thành viên
+        elif any(word in query_lower for word in ["bao nhiêu thành viên", "số lượng", "có bao nhiều"]):
+            expanded.extend([
+                "Quy mô thành viên CLB ProPTIT",
+                "CLB tuyển 25 thành viên mỗi năm",
+                "Tổng số thành viên hiện tại CLB"
+            ])
         
-        user_prompt = f"Mở rộng câu hỏi với ngữ cảnh CLB ProPTIT:\n\nCâu hỏi: {query}"
+        # 3. Câu hỏi về quy trình tham gia
+        elif any(word in query_lower for word in ["tham gia", "vào clb", "đăng ký"]):
+            expanded.extend([
+                "Quy trình 3 vòng tuyển thành viên ProPTIT",
+                "Điều kiện tham gia CLB ProPTIT",
+                "Cách đăng ký vào CLB ProPTIT"
+            ])
         
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        # 4. Câu hỏi về hoạt động, sự kiện
+        elif any(word in query_lower for word in ["hoạt động", "sự kiện", "event"]):
+            expanded.extend([
+                "Các sự kiện nổi bật của CLB ProPTIT",
+                "BigGame và SPOJ Tournament ProPTIT",
+                "Lịch hoạt động hàng năm CLB"
+            ])
         
-        response = self._get_llm_response(messages)
+        # 5. Câu hỏi về teams, cơ cấu tổ chức
+        elif any(word in query_lower for word in ["team", "nhóm", "phân chia"]) and "thành viên" not in query_lower:
+            # Tạo biến thể câu hỏi thay vì trả về đáp án
+            expanded.extend([
+                "CLB ProPTIT có bao nhiêu team dự án?",
+                "Danh sách các team dự án của CLB ProPTIT",
+                "Các team dự án trong CLB ProPTIT gồm những nào?"
+            ])
         
-        try:
-            import ast
-            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-            if list_match:
-                context_queries = ast.literal_eval(list_match.group())
-                return [query] + context_queries
-        except:
-            pass
+        # 6. Câu hỏi về học tập, lộ trình
+        elif any(word in query_lower for word in ["học", "lộ trình", "training", "đào tạo"]):
+            expanded.extend([
+                "Lộ trình học tập tại ProPTIT",
+                "Chương trình training C++ ProPTIT",
+                "CTDL&GT và OOP trong CLB"
+            ])
         
-        return [query]
+        # 7. Câu hỏi về lợi ích, giá trị
+        elif any(word in query_lower for word in ["lợi ích", "có gì", "tại sao", "giá trị"]):
+            expanded.extend([
+                "Lợi ích khi tham gia CLB ProPTIT",
+                "Kỹ năng đạt được từ CLB",
+                "0.1 điểm xét học bổng ProPTIT"
+            ])
+        
+        return expanded[:4]  # Limit 4 queries
     
     def multi_perspective_expansion(self, query: str) -> List[str]:
-        """
-        Technique 5: Multi-Perspective Query
-        Tạo các góc nhìn khác nhau cho cùng một câu hỏi
-        """
-        system_prompt = """Bạn là chuyên gia phân tích đa góc độ, tạo các cách tiếp cận khác nhau cho cùng một câu hỏi.
+        """Simplified multi-perspective - rule-based"""
+        perspectives = [query]
         
-        Nhiệm vụ: Tạo các góc nhìn khác nhau cho câu hỏi về CLB ProPTIT.
+        # Simple perspective templates
+        if "gì" in query.lower():
+            base = query.replace("gì", "").strip()
+            perspectives.extend([
+                f"Tại sao {base}",
+                f"Lợi ích {base}"
+            ])
         
-        Các góc nhìn có thể áp dụng:
-        - Góc nhìn của sinh viên mới
-        - Góc nhìn của thành viên hiện tại
-        - Góc nhìn về lợi ích/giá trị
-        - Góc nhìn về quá trình/thủ tục
-        - Góc nhìn về yêu cầu/điều kiện
-        - Góc nhìn về kết quả/thành tựu
+        if "như thế nào" in query.lower() or "làm sao" in query.lower():
+            base = re.sub(r'\b(như thế nào|làm sao)\b', '', query, flags=re.IGNORECASE).strip()
+            perspectives.extend([
+                f"Điều kiện {base}",
+                f"Quy trình {base}"
+            ])
         
-        Yêu cầu:
-        - Mỗi góc nhìn tạo ra câu hỏi khác biệt
-        - Phù hợp với ngữ cảnh CLB Lập trình
-        - Trả về dưới dạng danh sách Python
-        
-        Ví dụ:
-        Input: "CLB ProPTIT có gì hay?"
-        Output: ["CLB ProPTIT mang lại lợi ích gì cho sinh viên?", "Những hoạt động nổi bật của CLB ProPTIT?", "Tại sao nên tham gia CLB ProPTIT?", "CLB ProPTIT khác biệt như thế nào so với các CLB khác?"]
-        """
-        
-        user_prompt = f"Tạo các góc nhìn khác nhau cho câu hỏi:\n\nCâu hỏi: {query}"
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = self._get_llm_response(messages)
-        
-        try:
-            import ast
-            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-            if list_match:
-                perspective_queries = ast.literal_eval(list_match.group())
-                return [query] + perspective_queries
-        except:
-            pass
-        
-        return [query]
+        return perspectives[:3]
     
     def document_structure_expansion(self, query: str) -> List[str]:
-        """
-        Technique 6: Document Structure-Aware Expansion
-        Mở rộng dựa trên cấu trúc và nội dung cụ thể của tài liệu CLB ProPTIT
-        """
-        system_prompt = """Bạn là chuyên gia phân tích cấu trúc tài liệu CLB ProPTIT và hiểu rõ mapping giữa câu hỏi và document.
+        """Simplified document structure - rule-based keywords"""
+        doc_keywords = {
+            "thành lập": ["Lịch sử CLB ProPTIT", "9/10/2011 ProPTIT"],
+            "phương châm": ["Chia sẻ để cùng phát triển", "Slogan ProPTIT"],
+            "team": ["6 team ProPTIT", "Team AI, Mobile, Data, Game, Web, Backend"],
+            "tuyển": ["3 vòng tuyển", "CV, Phỏng vấn, Training"],
+            "training": ["Lộ trình C → C++ → CTDL&GT", "OOP Java ProPTIT"],
+            "sự kiện": ["BigGame SPOJ PROCWAR", "Code Battle Game C++"]
+        }
         
-        Dựa trên cấu trúc tài liệu CLB ProPTIT, tạo các câu hỏi mở rộng tập trung vào từ khóa chính xác:
+        expanded = [query]
+        query_lower = query.lower()
         
-        Cấu trúc tài liệu CLB ProPTIT:
-        - Document 1: Giới thiệu CLB (thành lập, phương châm, slogan)
-        - Document 2-4: Hoạt động, giải thưởng, team dự án  
-        - Document 5-56: Quy trình tuyển thành viên, lợi ích, điều kiện
-        - Document 57-67: Lộ trình học tập (training, C++, CTDL&GT, OOP, Java)
-        - Document 68-87: Sự kiện (BigGame, SPOJ, PROCWAR, Code Battle, etc.)
-        - Document 88-93: Phòng truyền thống, thành viên tiêu biểu
-        - Document 94-99: Quyền lợi, nghĩa vụ, tác phong, văn hóa, khen thưởng
+        for keyword, expansions in doc_keywords.items():
+            if keyword in query_lower:
+                expanded.extend(expansions[:2])
+                break
         
-        Nhiệm vụ: Tạo các câu hỏi mở rộng sử dụng từ khóa chính xác từ tài liệu.
-        
-        Yêu cầu:
-        - Sử dụng từ khóa chính xác từ tài liệu gốc
-        - Tạo các biến thể dựa trên cấu trúc document
-        - Trả về dưới dạng danh sách Python
-        
-        Ví dụ:
-        Input: "Khi tham gia CLB, tác phong và văn hóa ứng xử được quy định thế nào?"
-        Output: ["Quy định về tác phong thành viên CLB", "Văn hóa ứng xử trong CLB ProPTIT", "Nội quy về ăn mặc và giao tiếp", "Quy tắc sử dụng trụ sở CLB", "Nghĩa vụ và quyền lợi thành viên"]
-        """
-        
-        user_prompt = f"Tạo câu hỏi mở rộng dựa trên cấu trúc tài liệu:\n\nCâu hỏi: {query}"
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = self._get_llm_response(messages)
-        
-        try:
-            import ast
-            list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-            if list_match:
-                structure_queries = ast.literal_eval(list_match.group())
-                return [query] + structure_queries
-        except:
-            pass
-        
-        return [query]
+        return expanded[:3]
     
-    def expand_query(self, query: str, techniques: List[str] = None, max_expansions: int = 10) -> List[str]:
+    def expand_query(self, query: str, techniques: List[str] = None, max_expansions: int = 8) -> List[str]:
         """
-        Hàm chính để mở rộng câu truy vấn sử dụng tất cả các kỹ thuật
+        Optimized main expansion function - ưu tiên rule-based, giảm LLM calls
         
         Args:
             query: Câu hỏi gốc
-            techniques: Danh sách kỹ thuật muốn sử dụng. Nếu None, sử dụng tất cả
-            max_expansions: Số lượng tối đa câu hỏi mở rộng
+            techniques: Danh sách kỹ thuật muốn sử dụng
+            max_expansions: Số lượng tối đa câu hỏi mở rộng (giảm từ 10 xuống 8)
         
         Returns:
-            List[str]: Danh sách câu hỏi đã mở rộng (bao gồm câu gốc)
+            List[str]: Danh sách câu hỏi đã mở rộng
         """
         if techniques is None:
-            techniques = ["rewriting", "decomposition", "synonym", "context", "multi_perspective", "document_structure"]
+            # Ưu tiên rule-based techniques trước
+            techniques = ["rule_based", "synonym", "context", "combined_llm"]
         
-        all_expanded = [query]  # Bắt đầu với câu hỏi gốc
+        all_expanded = [query]
         
         try:
-            # Apply each technique
-            if "rewriting" in techniques:
-                rewrites = self.query_rewriting(query, num_variants=2)
-                all_expanded.extend(rewrites[1:])  # Skip original query
+            # 1. Rule-based expansion (nhanh, không tốn token)
+            if "rule_based" in techniques:
+                rule_based = self.rule_based_expansion(query)
+                all_expanded.extend(rule_based[1:])
             
-            if "decomposition" in techniques:
-                decomposed = self.query_decomposition(query)
-                all_expanded.extend(decomposed[1:])  # Skip original query
-            
+            # 2. Synonym expansion (rule-based)
             if "synonym" in techniques:
                 synonyms = self.synonym_expansion(query)
-                all_expanded.extend(synonyms[1:])  # Skip original query
+                all_expanded.extend(synonyms[1:])
             
+            # 3. Context-aware expansion (rule-based)
             if "context" in techniques:
                 context_aware = self.context_aware_expansion(query)
-                all_expanded.extend(context_aware[1:])  # Skip original query
+                all_expanded.extend(context_aware[1:])
+            
+            # 4. Combined LLM expansion (chỉ 1 lần gọi LLM thay vì 4-5 lần)
+            if "combined_llm" in techniques and len(all_expanded) < max_expansions:
+                combined = self.combined_llm_expansion(query)
+                all_expanded.extend(combined[1:])
+            
+            # Legacy techniques (chỉ dùng khi cần thiết)
+            if "decomposition" in techniques:
+                decomposed = self.query_decomposition(query)
+                all_expanded.extend(decomposed[1:])
             
             if "multi_perspective" in techniques:
                 perspectives = self.multi_perspective_expansion(query)
-                all_expanded.extend(perspectives[1:])  # Skip original query
+                all_expanded.extend(perspectives[1:])
             
             if "document_structure" in techniques:
                 structure_aware = self.document_structure_expansion(query)
-                all_expanded.extend(structure_aware[1:])  # Skip original query
+                all_expanded.extend(structure_aware[1:])
         
         except Exception as e:
             print(f"Error in query expansion: {e}")
@@ -522,9 +494,9 @@ class QueryExpansion:
             return expanded_queries
 
 
-# Utility function để test query expansion
+# Utility function để test query expansion (updated)
 def test_query_expansion():
-    """Function để test các kỹ thuật query expansion"""
+    """Function để test các kỹ thuật query expansion tối ưu"""
     expander = QueryExpansion()
     
     test_queries = [
@@ -539,41 +511,33 @@ def test_query_expansion():
         print(f"Original Query: {query}")
         print(f"{'='*50}")
         
-        # Test individual techniques
-        print("\n1. Query Rewriting:")
-        rewrites = expander.query_rewriting(query)
-        for i, rw in enumerate(rewrites):
-            print(f"   {i+1}. {rw}")
+        # Test optimized expansion
+        print("\n1. Rule-based Expansion (Fast):")
+        rule_based = expander.rule_based_expansion(query)
+        for i, rb in enumerate(rule_based):
+            print(f"   {i+1}. {rb}")
         
-        print("\n2. Query Decomposition:")
-        decomposed = expander.query_decomposition(query)
-        for i, dc in enumerate(decomposed):
-            print(f"   {i+1}. {dc}")
-        
-        print("\n3. Synonym Expansion:")
+        print("\n2. Synonym Expansion (Rule-based):")
         synonyms = expander.synonym_expansion(query)
         for i, syn in enumerate(synonyms):
             print(f"   {i+1}. {syn}")
         
-        print("\n4. Context-Aware Expansion:")
+        print("\n3. Context-Aware Expansion (Template-based):")
         context = expander.context_aware_expansion(query)
         for i, ctx in enumerate(context):
             print(f"   {i+1}. {ctx}")
         
-        print("\n5. Multi-Perspective Expansion:")
-        perspectives = expander.multi_perspective_expansion(query)
-        for i, persp in enumerate(perspectives):
-            print(f"   {i+1}. {persp}")
+        print("\n4. Combined LLM Expansion (1 API call):")
+        combined = expander.combined_llm_expansion(query)
+        for i, comb in enumerate(combined):
+            print(f"   {i+1}. {comb}")
         
-        print("\n6. Document Structure Expansion:")
-        structure = expander.document_structure_expansion(query)
-        for i, struct in enumerate(structure):
-            print(f"   {i+1}. {struct}")
-        
-        print("\n7. All Techniques Combined:")
-        all_expanded = expander.expand_query(query, max_expansions=10)
+        print("\n5. Optimized All Techniques Combined:")
+        all_expanded = expander.expand_query(query, max_expansions=8)
         for i, exp in enumerate(all_expanded):
             print(f"   {i+1}. {exp}")
+        
+        print(f"\nTotal expansions: {len(all_expanded)} (vs old version ~10-15)")
 
 
 if __name__ == "__main__":

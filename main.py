@@ -50,4 +50,4 @@ from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answe
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("NDCG@5:", ndcg_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=5, reranker=None, use_query_expansion=False))
+print("context_precision@3:", context_precision_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=3, reranker=reranker, use_query_expansion=True))

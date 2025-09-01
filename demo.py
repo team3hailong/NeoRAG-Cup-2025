@@ -378,14 +378,14 @@ with tab3:
     # Create baseline data from the instructions
     baseline_retrieval_train = {
         'k': [3, 5, 7],
-        'hit@k': [0.31, 0.46, 0.57],
-        'recall@k': [0.19, 0.28, 0.35],
-        'precision@k': [0.12, 0.10, 0.09],
-        'f1@k': [0.15, 0.15, 0.15],
-        'map@k': [0.23, 0.23, 0.23],
-        'mrr@k': [0.23, 0.27, 0.28],
-        'ndcg@k': [0.25, 0.31, 0.35],
-        'context_precision@k': [0.63, 0.56, 0.54],
+        'hit@k': [0.59, 0.57, 0.76],
+        'recall@k': [0.41, 0.49, 0.54],
+        'precision@k': [0.21, 0.16, 0.13],
+        'f1@k': [0.28, 0.25, 0.21],
+        'map@k': [0.52, 0.55, 0.54],
+        'mrr@k': [0.52, 0.55, 0.56],
+        'ndcg@k': [0.54, 0.59, 0.6],
+        'context_precision@k': [0.78, 0.56, 0.54],
         'context_recall@k': [0.50, 0.44, 0.40]
     }
     
