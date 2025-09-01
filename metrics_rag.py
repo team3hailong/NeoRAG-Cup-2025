@@ -9,6 +9,24 @@ import time
 from google import genai
 from rerank import Reranker
 from query_expansion import QueryExpansion
+from groq import Groq
+from retrieval_utils import hybrid_retrieve
+# Helper to retrieve contexts with optional query expansion and reranking
+def get_contexts(query, embedding, vector_db, reranker=None, use_query_expansion=True, k=5):
+    """Retrieve contexts using query expansion and optional reranking."""
+    expander = QueryExpansion()
+    # Expand queries if enabled
+    queries = expander.combined_llm_expansion(query) if use_query_expansion else [query]
+    all_results = []
+    for q in queries:
+        emb = embedding.encode(q)
+        all_results.extend(vector_db.query("information", emb, limit=k))
+    # Rerank passages if reranker is provided
+    if reranker:
+        passages = [r["information"] for r in all_results]
+        _, reranked = reranker(query, passages)
+        return [{"information": p} for p in reranked[:k]]
+    return all_results[:k]
 
 # Helper to retrieve and optionally rerank results with query expansion
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
@@ -101,8 +119,6 @@ load_dotenv()
 # Option 2: Gemini Pro 
 # client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 # MODEL_NAME = "gemini-1.5-flash"
-
-from groq import Groq
 
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
@@ -476,9 +492,9 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranke
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
     # Sample a subset for faster testing / stable evaluation (same behavior as context_precision_k)
-    sample_size = 20
-    df_train = df_train.head(sample_size)
-    print(f"Testing context_recall_k with {len(df_train)} queries (sample_size={sample_size})")
+    # sample_size = 20
+    # df_train = df_train.head(sample_size)
+    # print(f"Testing context_recall_k with {len(df_train)} queries (sample_size={sample_size})")
 
     total_recall = 0
 
@@ -533,9 +549,9 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
     # Sample subset for faster testing
-    sample_size = 20
-    df_train = df_train.head(sample_size)
-    print(f"Testing context_entities_recall_k with {len(df_train)} queries (sample_size={sample_size})")
+    # sample_size = 20
+    # df_train = df_train.head(sample_size)
+    # print(f"Testing context_entities_recall_k with {len(df_train)} queries (sample_size={sample_size})")
 
     total_recall = 0
     for index, row in df_train.iterrows():
@@ -633,7 +649,7 @@ def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector
 
 # Hàm String Presence
 
-def string_presence_k(file_clb_proptit, file_train, embedding, vector_db,  k=5):
+def string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -645,8 +661,8 @@ def string_presence_k(file_clb_proptit, file_train, embedding, vector_db,  k=5):
         # Tạo embedding cho câu hỏi của người dùng
         user_embedding = embedding.encode(query)
 
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional query expansion and reranking
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -698,8 +714,8 @@ Nhiệm vụ của bạn:
         for entity in entities:
             if entity.strip() in response:
                 hits += 1
-                # print(f"Entity '{entity.strip()}' found in response.")
         hits /= len(entities) if len(entities) > 0 else 0
+        print(f"Query {index+1}/{len(df_train)} - Entities found: {hits * len(entities) if len(entities) > 0 else 0} / {len(entities)} - Presence: {hits:.3f}")
         total_presence += hits
     return total_presence / len(df_train) if len(df_train) > 0 else 0
 
@@ -722,7 +738,7 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -772,7 +788,7 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -824,7 +840,7 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -938,7 +954,7 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -997,7 +1013,7 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
         reply = row['Ground truth answer']
         messages = [
             {

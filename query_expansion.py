@@ -101,9 +101,9 @@ class QueryExpansion:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
-                    temperature=0.3,  # Giảm để consistent hơn
-                    max_completion_tokens=256,  # Giảm từ 512 xuống 256
-                    top_p=0.8,  # Giảm để focused hơn
+                    temperature=0.4,  
+                    max_completion_tokens=256,  
+                    top_p=0.8, 
                     stream=False,
                     stop=None
                 )
@@ -154,17 +154,14 @@ Ngữ cảnh CLB ProPTIT:
         except:
             pass
         
-        # Fallback to rule-based if LLM fails
+        # Fallback 
         return self.rule_based_expansion(query)
     
     def rule_based_expansion(self, query: str) -> List[str]:
-        """
-        Improved rule-based expansion - hiểu ngữ cảnh tốt hơn
-        """
         expanded = [query]
         query_lower = query.lower()
-        
-        # 1. Synonym replacement từ keywords (cẩn thận với context)
+
+        # 1. Thay thế từ đồng nghĩa
         for category, synonyms in self.proptit_keywords.items():
             for synonym in synonyms[:2]:  # Giảm số lượng để tránh noise
                 pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
@@ -178,8 +175,8 @@ Ngữ cảnh CLB ProPTIT:
                                 if len(expanded) >= 3:  # Giảm limit
                                     return expanded
                     break
-        
-        # 2. Intent-based template expansion
+
+        # 2. Thay thế câu hỏi theo ngữ cảnh
         if any(word in query_lower for word in ["làm sao", "như thế nào", "cách"]):
             base = re.sub(r'\b(làm sao|như thế nào|cách)\s*', '', query, flags=re.IGNORECASE).strip()
             if base:
@@ -195,10 +192,9 @@ Ngữ cảnh CLB ProPTIT:
             if base:
                 expanded.append(f"Thời gian {base}")
         
-        return list(set(expanded))[:4]  # Giảm limit xuống 4
+        return list(set(expanded))[:4] 
     
-    def query_rewriting(self, query: str, num_variants: int = 2) -> List[str]:  # Giảm từ 3 xuống 2
-        """Simplified query rewriting với prompt ngắn gọn"""
+    def query_rewriting(self, query: str, num_variants: int = 2) -> List[str]:  
         system_prompt = """Viết lại câu hỏi CLB ProPTIT thành 2 cách khác. Format: ["cách 1", "cách 2"]"""
         user_prompt = f"Câu hỏi: {query}"
         
@@ -222,7 +218,7 @@ Ngữ cảnh CLB ProPTIT:
             return [query, query.replace("CLB", "Câu lạc bộ"), query.replace("ProPTIT", "Lập trình PTIT")]
     
     def query_decomposition(self, query: str) -> List[str]:
-        # Rule-based decomposition first
+        # Chia nhỏ câu hỏi phức tạp
         if ' và ' in query:
             parts = query.split(' và ')
             if len(parts) == 2:
@@ -251,19 +247,19 @@ Ngữ cảnh CLB ProPTIT:
     def synonym_expansion(self, query: str) -> List[str]:
         expanded_queries = [query]
         
-        # Rule-based synonym replacement - nhanh và không tốn token
+        # Thay thế từ đồng nghĩa
         for category, synonyms in self.proptit_keywords.items():
-            for synonym in synonyms[:3]:  # Chỉ check 3 synonym đầu tiên
+            for synonym in synonyms[:3]: 
                 pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
                 if pattern.search(query):
-                    for alternative in synonyms[:2]:  # Chỉ lấy 2 alternatives
+                    for alternative in synonyms[:2]:  
                         if alternative.lower() != synonym.lower():
                             new_query = pattern.sub(alternative, query)
                             if new_query != query and new_query not in expanded_queries:
                                 expanded_queries.append(new_query)
-                                if len(expanded_queries) >= 4:  # Limit để tránh quá nhiều
+                                if len(expanded_queries) >= 4:  
                                     return expanded_queries
-                    break  # Chỉ replace category đầu tiên tìm thấy
+                    break
         
         return expanded_queries
     
@@ -330,10 +326,9 @@ Ngữ cảnh CLB ProPTIT:
                 "0.1 điểm xét học bổng ProPTIT"
             ])
         
-        return expanded[:4]  # Limit 4 queries
+        return expanded[:4]  
     
     def multi_perspective_expansion(self, query: str) -> List[str]:
-        """Simplified multi-perspective - rule-based"""
         perspectives = [query]
         
         # Simple perspective templates
@@ -354,7 +349,6 @@ Ngữ cảnh CLB ProPTIT:
         return perspectives[:3]
     
     def document_structure_expansion(self, query: str) -> List[str]:
-        """Simplified document structure - rule-based keywords"""
         doc_keywords = {
             "thành lập": ["Lịch sử CLB ProPTIT", "9/10/2011 ProPTIT"],
             "phương châm": ["Chia sẻ để cùng phát triển", "Slogan ProPTIT"],
@@ -393,27 +387,27 @@ Ngữ cảnh CLB ProPTIT:
         all_expanded = [query]
         
         try:
-            # 1. Rule-based expansion (nhanh, không tốn token)
+            # 1. Rule-based expansion
             if "rule_based" in techniques:
                 rule_based = self.rule_based_expansion(query)
                 all_expanded.extend(rule_based[1:])
             
-            # 2. Synonym expansion (rule-based)
+            # 2. Synonym expansion 
             if "synonym" in techniques:
                 synonyms = self.synonym_expansion(query)
                 all_expanded.extend(synonyms[1:])
             
-            # 3. Context-aware expansion (rule-based)
+            # 3. Context-aware expansion
             if "context" in techniques:
                 context_aware = self.context_aware_expansion(query)
                 all_expanded.extend(context_aware[1:])
             
-            # 4. Combined LLM expansion (chỉ 1 lần gọi LLM thay vì 4-5 lần)
+            # 4. Combined LLM expansion 
             if "combined_llm" in techniques and len(all_expanded) < max_expansions:
                 combined = self.combined_llm_expansion(query)
                 all_expanded.extend(combined[1:])
             
-            # Legacy techniques (chỉ dùng khi cần thiết)
+            # Legacy techniques
             if "decomposition" in techniques:
                 decomposed = self.query_decomposition(query)
                 all_expanded.extend(decomposed[1:])
@@ -429,7 +423,6 @@ Ngữ cảnh CLB ProPTIT:
         except Exception as e:
             print(f"Error in query expansion: {e}")
         
-        # Remove duplicates while preserving order
         unique_expanded = []
         seen = set()
         for q in all_expanded:
@@ -437,7 +430,6 @@ Ngữ cảnh CLB ProPTIT:
                 unique_expanded.append(q)
                 seen.add(q.lower())
         
-        # Limit to max_expansions
         return unique_expanded[:max_expansions]
     
     def rank_expanded_queries(self, original_query: str, expanded_queries: List[str], embedding_model) -> List[str]:
@@ -494,7 +486,6 @@ Ngữ cảnh CLB ProPTIT:
             return expanded_queries
 
 
-# Utility function để test query expansion (updated)
 def test_query_expansion():
     """Function để test các kỹ thuật query expansion tối ưu"""
     expander = QueryExpansion()
@@ -511,7 +502,6 @@ def test_query_expansion():
         print(f"Original Query: {query}")
         print(f"{'='*50}")
         
-        # Test optimized expansion
         print("\n1. Rule-based Expansion (Fast):")
         rule_based = expander.rule_based_expansion(query)
         for i, rb in enumerate(rule_based):
