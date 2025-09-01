@@ -5,9 +5,8 @@ import pandas as pd
 import openai
 import os
 from rerank import Reranker
-import retrieval_utils
 
-doc = retrieval_utils._doc
+doc = Document("CLB_PROPTIT.docx")
 
 # Sửa chỗ FIX_ME để dùng DB mà các em muốn hoặc các em có thể tự sửa code trong lớp VectorDatabase để dùng các DB khác
 
@@ -44,11 +43,11 @@ else:
 
 # Các em có thể import từng hàm một để check kết quả, trick là nên chạy trên data nhỏ thôi để xem hàm có chạy đúng hay ko rồi mới chạy trên toàn bộ data
 
-from metrics_rag import calculate_metrics_llm_answer, hit_k, recall_k, precision_k, context_precision_k, context_entities_recall_k, string_presence_k, ndcg_k
+from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answer, hit_k, recall_k, precision_k, context_precision_k, string_presence_k, context_entities_recall_k, ndcg_k
 
 # df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
 # df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker) # đặt là True nếu là tập train, False là tập test
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("context_entities_recall@5:", context_entities_recall_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
+print("string_presence@3:", string_presence_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=3, reranker=reranker, use_query_expansion=True))

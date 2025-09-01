@@ -9,24 +9,6 @@ import time
 from google import genai
 from rerank import Reranker
 from query_expansion import QueryExpansion
-from groq import Groq
-from retrieval_utils import hybrid_retrieve
-# Helper to retrieve contexts with optional query expansion and reranking
-def get_contexts(query, embedding, vector_db, reranker=None, use_query_expansion=True, k=5):
-    """Retrieve contexts using query expansion and optional reranking."""
-    expander = QueryExpansion()
-    # Expand queries if enabled
-    queries = expander.combined_llm_expansion(query) if use_query_expansion else [query]
-    all_results = []
-    for q in queries:
-        emb = embedding.encode(q)
-        all_results.extend(vector_db.query("information", emb, limit=k))
-    # Rerank passages if reranker is provided
-    if reranker:
-        passages = [r["information"] for r in all_results]
-        _, reranked = reranker(query, passages)
-        return [{"information": p} for p in reranked[:k]]
-    return all_results[:k]
 
 # Helper to retrieve and optionally rerank results with query expansion
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
@@ -119,6 +101,8 @@ load_dotenv()
 # Option 2: Gemini Pro 
 # client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 # MODEL_NAME = "gemini-1.5-flash"
+
+from groq import Groq
 
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
@@ -407,9 +391,9 @@ def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, rera
     df_train = pd.read_excel(file_train)
 
     # Chỉ lấy 30 hàng để test nhanh
-    sample_size = 30
-    df_train = df_train.tail(sample_size)
-    print(f"Testing with {len(df_train)} queries out of total {sample_size * 5} queries")
+    # sample_size = 30
+    # df_train = df_train.tail(sample_size)
+    # print(f"Testing with {len(df_train)} queries out of total {sample_size * 5} queries")
 
     total_precision = 0
 
@@ -646,7 +630,21 @@ def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector
     return metrics_df
 
 # Các hàm đánh giá LLM Answer
-
+def get_contexts(query, embedding, vector_db, reranker=None, use_query_expansion=True, k=5):
+    """Retrieve contexts using query expansion and optional reranking."""
+    expander = QueryExpansion()
+    # Expand queries if enabled
+    queries = expander.combined_llm_expansion(query) if use_query_expansion else [query]
+    all_results = []
+    for q in queries:
+        emb = embedding.encode(q)
+        all_results.extend(vector_db.query("information", emb, limit=k))
+    # Rerank passages if reranker is provided
+    if reranker:
+        passages = [r["information"] for r in all_results]
+        _, reranked = reranker(query, passages)
+        return [{"information": p} for p in reranked[:k]]
+    return all_results[:k]
 # Hàm String Presence
 
 def string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
@@ -708,9 +706,17 @@ Nhiệm vụ của bạn:
             "role": "user",
             "content": f"Câu trả lời: {reply}"
         })
-        # Gọi  API để trích xuất các thực thể
-        entities = get_llm_response(messages_entities)
-        entities = eval(entities) if entities.startswith('[') else []
+        # Gọi API để trích xuất các thực thể
+        entities_str = get_llm_response(messages_entities)
+        # Trích xuất danh sách ở đầu phản hồi
+        match = re.search(r'\[.*?\]', entities_str)
+        if match:
+            try:
+                entities = ast.literal_eval(match.group())
+            except Exception:
+                entities = []
+        else:
+            entities = []
         for entity in entities:
             if entity.strip() in response:
                 hits += 1
@@ -738,7 +744,7 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -788,7 +794,7 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -840,7 +846,7 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -954,7 +960,7 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -1013,7 +1019,7 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
         user_embedding = embedding.encode(query)
 
         # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = hybrid_retrieve(query, embedding, k_sparse=20, k=k)
+        results = vector_db.query("information", user_embedding, limit=k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -1114,4 +1120,3 @@ def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector
     else:
         metrics_df.to_csv("metrics_llm_answer_test.csv", index=False)
     return metrics_df
-

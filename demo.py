@@ -477,7 +477,7 @@ with tab3:
         'ndcg@k': [0.54, 0.59, 0.6],
         'context_precision@k': [0.78, 0.66, 0.57],
         'context_recall@k': [0.54, 0.45, 0.42],
-        'context_entities_recall@k': [0.320, 0.370, 0.47]
+        'context_entities_recall@k': [0.47, 0.45, 0.47]
     }
     
     baseline_llm_train = {
