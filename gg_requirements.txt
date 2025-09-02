@@ -7,6 +7,7 @@ sentence-transformers==2.7.0
 FlagEmbedding==1.2.8
 
 # Vector DB
+pysqlite3-binary==0.5.4
 chromadb==1.0.20
 qdrant-client==1.15.0
 

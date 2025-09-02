@@ -1,10 +1,13 @@
 from pymongo import MongoClient
+import pysqlite3
+import sys
+sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+import chromadb
 from chromadb import HttpClient
 from qdrant_client import QdrantClient
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from qdrant_client import models as qdrant_models
-import chromadb
 load_dotenv()
 import os
 
