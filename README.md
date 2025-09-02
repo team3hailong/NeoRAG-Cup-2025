@@ -108,9 +108,9 @@ Hệ thống đạt được hiệu suất ổn định trên tập test với c
 
 ### 🌟 Hiệu suất cao:
 *So sánh trên tập train*
-- **Cải thiện Hit@5**: Từ 46% lên 66% (+20%)
-- **Tăng Recall@5**: Từ 28% lên 49% (+21%)
-- **Nâng cao String Presence@5**: Từ 40% lên 50% (+10%)
+- **Cải thiện Hit@5**: Từ 46% lên 66% (+56%)
+- **Tăng Recall@5**: Từ 28% lên 49% (+75%)
+- **Nâng cao String Presence@5**: Từ 40% lên 50% (+25%)
 - **Tối ưu Groundedness**: Cải thiện đáng kể độ tin cậy của câu trả lời
 
 ### 🔧 Tính linh hoạt:
