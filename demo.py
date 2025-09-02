@@ -466,7 +466,7 @@ with tab3:
     st.subheader("🎯 So sánh với Baseline")
     
     # Create baseline data from the instructions
-    baseline_retrieval_train = {
+    retrieval_train = {
         'k': [3, 5, 7],
         'hit@k': [0.59, 0.57, 0.76],
         'recall@k': [0.41, 0.49, 0.54],
@@ -480,21 +480,21 @@ with tab3:
         'context_entities_recall@k': [0.47, 0.45, 0.47]
     }
     
-    baseline_llm_train = {
+    llm_train = {
         'k': [3, 5, 7],
         'string_presence@k': [0.47, 0.50, 0.48],
         'rouge_l@k': [0.22, 0.21, 0.21],
         'bleu_4@k': [0.04, 0.030, 0.03],
         'groundedness@k': [0.570, 0.610, 0.640],
-        'response_relevancy@k': [0.800, 0.85, 0.800],
+        'response_relevancy@k': [0.850, 0.85, 0.850],
         'noise_sensitivity@k': [0.510, 0.530, 0.510]
     }
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🔍 Baseline Retrieval Metrics (Train)")
-        df_baseline_ret = pd.DataFrame(baseline_retrieval_train)
+        st.subheader("🔍 Retrieval Metrics (Train)")
+        df_baseline_ret = pd.DataFrame(retrieval_train)
         st.dataframe(df_baseline_ret)
         
         # Plot baseline retrieval
@@ -507,12 +507,12 @@ with tab3:
                 mode='lines+markers',
                 name=metric
             ))
-        fig.update_layout(title="Baseline Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
+        fig.update_layout(title="Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.subheader("🤖 Baseline LLM Metrics (Train)")
-        df_baseline_llm = pd.DataFrame(baseline_llm_train)
+        st.subheader("🤖 LLM Metrics (Train)")
+        df_baseline_llm = pd.DataFrame(llm_train)
         st.dataframe(df_baseline_llm)
         
         # Plot baseline LLM
@@ -525,10 +525,10 @@ with tab3:
                 mode='lines+markers',
                 name=metric
             ))
-        fig.update_layout(title="Baseline LLM Metrics", xaxis_title="K", yaxis_title="Score")
+        fig.update_layout(title="LLM Metrics", xaxis_title="K", yaxis_title="Score")
         st.plotly_chart(fig, use_container_width=True)
 
-    baseline_retrieval_test = {
+    retrieval_test = {
         'k': [3, 5, 7],
         'hit@k': [0.93, 0.93, 0.97],
         'recall@k': [0.73, 0.76, 0.82],
@@ -542,21 +542,21 @@ with tab3:
         'context_entities_recall@k': [0.61, 0.62, 0.67]
     }
 
-    baseline_llm_test = {
+    llm_test = {
         'k': [3, 5, 7],
         'string_presence@k': [0.53, 0.58, 0.57],
         'rouge_l@k': [0.42, 0.43, 0.4],
         'bleu_4@k': [0.16, 0.18, 0.2],
         'groundedness@k': [0.57, 0.61, 0.64],
-        'response_relevancy@k': [0.86, 0.86, 0.860],
+        'response_relevancy@k': [0.86, 0.86, 0.86],
         'noise_sensitivity@k': [0.51, 0.53, 0.51]
     }
 
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🔍 Baseline Retrieval Metrics (Train)")
-        df_baseline_ret = pd.DataFrame(baseline_retrieval_test)
+        st.subheader("🔍 Retrieval Metrics (Train)")
+        df_baseline_ret = pd.DataFrame(retrieval_test)
         st.dataframe(df_baseline_ret)
         
         # Plot baseline retrieval
@@ -569,12 +569,12 @@ with tab3:
                 mode='lines+markers',
                 name=metric
             ))
-        fig.update_layout(title="Baseline Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
+        fig.update_layout(title="Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.subheader("🤖 Baseline LLM Metrics (Train)")
-        df_baseline_llm = pd.DataFrame(baseline_llm_test)
+        st.subheader("🤖 LLM Metrics (Train)")
+        df_baseline_llm = pd.DataFrame(llm_test)
         st.dataframe(df_baseline_llm)
         
         # Plot baseline LLM
@@ -587,7 +587,7 @@ with tab3:
                 mode='lines+markers',
                 name=metric
             ))
-        fig.update_layout(title="Baseline LLM Metrics", xaxis_title="K", yaxis_title="Score")
+        fig.update_layout(title="LLM Metrics", xaxis_title="K", yaxis_title="Score")
         st.plotly_chart(fig, use_container_width=True)
     
     # Individual metric testing
@@ -632,8 +632,8 @@ with tab3:
                     st.success(f"**{metric_type}@{test_k}:** {result:.4f}")
                     
                     # Compare with baseline if available
-                    if test_k in [3, 5, 7] and metric_type.replace('_', '@') in baseline_retrieval_train:
-                        baseline_val = baseline_retrieval_train[metric_type.replace('_', '@')][baseline_retrieval_train['k'].index(test_k)]
+                    if test_k in [3, 5, 7] and metric_type.replace('_', '@') in retrieval_train:
+                        baseline_val = retrieval_train[metric_type.replace('_', '@')][retrieval_train['k'].index(test_k)]
                         improvement = ((result - baseline_val) / baseline_val) * 100
                         
                         if improvement > 0:

@@ -30,11 +30,10 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
         
         expanded_queries = query_expander.expand_query(
             query, 
-            techniques=["rewriting", "decomposition", "synonym", "context", "multi_perspective", "document_structure"],
-            max_expansions=8 
+            techniques=["rewriting", "synonym", "context"],
+            max_expansions=3
         )
         
-        # Xếp hạng các câu hỏi mở rộng theo độ tương đồng
         ranked_queries = query_expander.rank_expanded_queries(query, expanded_queries, embedding)
         
         weights = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
@@ -45,7 +44,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
             # Tạo embedding cho câu hỏi mở rộng
             user_embedding = embedding.encode(exp_query)
             
-            initial_limit = k * 3 if reranker else k * 2
+            initial_limit = k * 2 if reranker else k
             results = vector_db.query("information", user_embedding, limit=initial_limit)
             
             # Thêm weight score và tránh duplicate
