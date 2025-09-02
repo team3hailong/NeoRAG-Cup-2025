@@ -1,5 +1,4 @@
 import torch
-from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
@@ -15,13 +14,6 @@ class Embeddings:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if self.device == 'cuda':
             print(f"[Embeddings] Using device: {self.device}")
-        if type == "openai":
-            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        elif type == "ollama":
-            self.client = OpenAI(
-                base_url="http://localhost:11434/v1",
-                api_key="ollama"
-            )
         elif type == "sentence_transformers":
             self.client = SentenceTransformer(
                 model_name,

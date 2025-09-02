@@ -2,7 +2,6 @@ from docx import Document
 from embeddings import Embeddings
 from vector_db import VectorDatabase
 import pandas as pd
-import openai
 import os
 from rerank import Reranker
 
