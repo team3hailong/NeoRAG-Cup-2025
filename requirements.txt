@@ -201,6 +201,7 @@ starlette==0.45.3
 storage3==0.11.3
 streamlit==1.47.1
 StrEnum==0.4.15
+sqlite3==3.35.0
 supabase==2.15.1
 supafunc==0.9.4
 sympy==1.14.0
