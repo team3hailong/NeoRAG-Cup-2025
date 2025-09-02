@@ -50,4 +50,5 @@ from metrics_rag import calculate_metrics_retrieval, calculate_metrics_llm_answe
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("rouge@5:", rouge_l_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
+print("rouge@5:", rouge_l_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
+print("rouge@3:", rouge_l_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=3, reranker=reranker, use_query_expansion=True))

@@ -102,6 +102,7 @@ class QueryExpansion:
                     model=self.model_name,
                     messages=messages,
                     temperature=0.4,  
+                    max_completion_tokens=256,  
                     top_p=0.8, 
                     stream=False,
                     stop=None

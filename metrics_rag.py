@@ -119,6 +119,7 @@ def get_llm_response(messages, model_name=MODEL_NAME):
                 model=model_name,
                 messages=messages,
                 temperature=0.0,
+                max_completion_tokens=848,
                 top_p=1,
                 stream=False,
                 stop=None
