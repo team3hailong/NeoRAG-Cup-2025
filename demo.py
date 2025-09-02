@@ -549,7 +549,7 @@ with tab3:
         'bleu_4@k': [0.16, 0.18, 0.2],
         'groundedness@k': [0.91, 0.87, 0.9],
         'response_relevancy@k': [0.86, 0.86, 0.86],
-        'noise_sensitivity@k': [0.00, 0.00, 0.51]
+        'noise_sensitivity@k': [0.00, 0.00, 0.00]
     }
 
     col1, col2 = st.columns(2)
