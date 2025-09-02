@@ -270,7 +270,7 @@ with tab1:
             )
         
         with col2:
-            top_k = st.selectbox("Top K", [3, 5, 7, 10], index=1)
+            top_k = st.selectbox("Top K", [3, 5, 7, 10], index=0)
         
         with col3:
             ask_button = st.button("🚀 Hỏi", type="primary")
@@ -294,7 +294,7 @@ with tab1:
                     
                     # Display retrieved documents
                     st.subheader("📋 Documents được truy xuất:")
-                    for i, doc in enumerate(results[:3]):  # Show top 3
+                    for i, doc in enumerate(results): 
                         with st.expander(f"Document {i+1}: {doc.get('title', 'N/A')}"):
                             st.write(doc.get('information', 'N/A'))
                             if 'score' in doc:
@@ -485,33 +485,9 @@ with tab3:
         'string_presence@k': [0.47, 0.50, 0.48],
         'rouge_l@k': [0.22, 0.21, 0.21],
         'bleu_4@k': [0.04, 0.030, 0.03],
-        'groundedness@k': [0.57, 0.61, 0.64],
-        'response_relevancy@k': [0.80, 0.80, 0.80],
-        'noise_sensitivity@k': [0.51, 0.53, 0.51]
-    }
-
-    baseline_retrieval_test = {
-        'k': [3, 5, 7],
-        'hit@k': [0.93, 0.93, 0.97],
-        'recall@k': [0.73, 0.76, 0.82],
-        'precision@k': [0.47, 0.3, 0.24],
-        'f1@k': [0.57, 0.43, 0.37],
-        'map@k': [0.86, 0.84, 0.85],
-        'mrr@k': [0.87, 0.87, 0.89],
-        'ndcg@k': [0.88, 0.87, 0.89],
-        'context_precision@k': [0.88, 0.74, 0.57],
-        'context_recall@k': [0.66, 0.53, 0.45],
-        'context_entities_recall@k': [0.61, 0.62, 0.67]
-    }
-
-    baseline_llm_test = {
-        'k': [3, 5, 7],
-        'string_presence@k': [0.53, 0.58, 0.57],
-        'rouge_l@k': [0.42, 0.43, 0.4],
-        'bleu_4@k': [0.16, 0.18, 0.2],
-        'groundedness@k': [0.57, 0.61, 0.64],
-        'response_relevancy@k': [0.86, 0.86, 0.860],
-        'noise_sensitivity@k': [0.51, 0.53, 0.51]
+        'groundedness@k': [0.570, 0.610, 0.640],
+        'response_relevancy@k': [0.800, 0.85, 0.800],
+        'noise_sensitivity@k': [0.510, 0.530, 0.510]
     }
     
     col1, col2 = st.columns(2)
@@ -537,6 +513,68 @@ with tab3:
     with col2:
         st.subheader("🤖 Baseline LLM Metrics (Train)")
         df_baseline_llm = pd.DataFrame(baseline_llm_train)
+        st.dataframe(df_baseline_llm)
+        
+        # Plot baseline LLM
+        fig = go.Figure()
+        metrics_to_plot = ['string_presence@k', 'rouge_l@k', 'groundedness@k', 'response_relevancy@k']
+        for metric in metrics_to_plot:
+            fig.add_trace(go.Scatter(
+                x=df_baseline_llm['k'],
+                y=df_baseline_llm[metric],
+                mode='lines+markers',
+                name=metric
+            ))
+        fig.update_layout(title="Baseline LLM Metrics", xaxis_title="K", yaxis_title="Score")
+        st.plotly_chart(fig, use_container_width=True)
+
+    baseline_retrieval_test = {
+        'k': [3, 5, 7],
+        'hit@k': [0.93, 0.93, 0.97],
+        'recall@k': [0.73, 0.76, 0.82],
+        'precision@k': [0.47, 0.3, 0.24],
+        'f1@k': [0.57, 0.43, 0.37],
+        'map@k': [0.86, 0.84, 0.85],
+        'mrr@k': [0.87, 0.87, 0.89],
+        'ndcg@k': [0.88, 0.87, 0.89],
+        'context_precision@k': [0.88, 0.74, 0.57],
+        'context_recall@k': [0.66, 0.53, 0.45],
+        'context_entities_recall@k': [0.61, 0.62, 0.67]
+    }
+
+    baseline_llm_test = {
+        'k': [3, 5, 7],
+        'string_presence@k': [0.53, 0.58, 0.57],
+        'rouge_l@k': [0.42, 0.43, 0.4],
+        'bleu_4@k': [0.16, 0.18, 0.2],
+        'groundedness@k': [0.57, 0.61, 0.64],
+        'response_relevancy@k': [0.86, 0.86, 0.860],
+        'noise_sensitivity@k': [0.51, 0.53, 0.51]
+    }
+
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🔍 Baseline Retrieval Metrics (Train)")
+        df_baseline_ret = pd.DataFrame(baseline_retrieval_test)
+        st.dataframe(df_baseline_ret)
+        
+        # Plot baseline retrieval
+        fig = go.Figure()
+        metrics_to_plot = ['hit@k', 'recall@k', 'precision@k', 'ndcg@k']
+        for metric in metrics_to_plot:
+            fig.add_trace(go.Scatter(
+                x=df_baseline_ret['k'],
+                y=df_baseline_ret[metric],
+                mode='lines+markers',
+                name=metric
+            ))
+        fig.update_layout(title="Baseline Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.subheader("🤖 Baseline LLM Metrics (Train)")
+        df_baseline_llm = pd.DataFrame(baseline_llm_test)
         st.dataframe(df_baseline_llm)
         
         # Plot baseline LLM

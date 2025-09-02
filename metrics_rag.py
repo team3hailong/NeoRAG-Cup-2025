@@ -26,10 +26,8 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
     seen_docs = set()
     
     if use_query_expansion:
-        # Khởi tạo Query Expansion
         query_expander = QueryExpansion()
         
-        # Mở rộng câu hỏi bằng tất cả các kỹ thuật
         expanded_queries = query_expander.expand_query(
             query, 
             techniques=["rewriting", "decomposition", "synonym", "context", "multi_perspective", "document_structure"],
@@ -39,8 +37,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
         # Xếp hạng các câu hỏi mở rộng theo độ tương đồng
         ranked_queries = query_expander.rank_expanded_queries(query, expanded_queries, embedding)
         
-        # Weight để ưu tiên các câu hỏi có độ tương đồng cao hơn
-        weights = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]  # Trọng số giảm dần
+        weights = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
         
         for i, exp_query in enumerate(ranked_queries):
             weight = weights[i] if i < len(weights) else 0.2
@@ -48,7 +45,6 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
             # Tạo embedding cho câu hỏi mở rộng
             user_embedding = embedding.encode(exp_query)
             
-            # Retrieve với limit cao hơn để có nhiều lựa chọn
             initial_limit = k * 3 if reranker else k * 2
             results = vector_db.query("information", user_embedding, limit=initial_limit)
             
@@ -56,15 +52,12 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
             for result in results:
                 doc_id = result.get('title', str(hash(result['information'])))
                 if doc_id not in seen_docs:
-                    # Thêm weighted score
                     result['expansion_weight'] = weight
                     result['source_query'] = exp_query
                     all_results.append(result)
                     seen_docs.add(doc_id)
-        
-        # Sort theo expansion_weight và giữ top k*2 results
         all_results.sort(key=lambda x: x.get('expansion_weight', 0), reverse=True)
-        all_results = all_results[:k*2]
+        all_results = all_results[:k]
         
     else:
         # Retrieval truyền thống không có query expansion
@@ -72,14 +65,14 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
         initial_limit = k * 2 if reranker else k
         all_results = vector_db.query("information", user_embedding, limit=initial_limit)
     
-    # Apply reranking nếu có
     if reranker and all_results:
-        passages = [res['information'] for res in all_results]
+        top_results = all_results[:int(k*1.5)] if len(all_results) > int(k*1.5) else all_results
+        passages = [res['information'] for res in top_results]
         ranked_scores, ranked_passages = reranker(query, passages)
         
         reranked_results = []
         for rp in ranked_passages[:k]:
-            for res in all_results:
+            for res in top_results:
                 if res['information'] == rp:
                     reranked_results.append(res)
                     break
@@ -914,6 +907,7 @@ Nhiệm vụ của bạn:
                 cnt += 1
             elif groundedness_reply == "unsupported" or groundedness_reply == "contradictory":
                 cnt += 1
+        print(f"Query {index+1}/{len(df_train)} - Supported sentences: {hits} / {cnt} - Groundedness: {hits / cnt if cnt > 0 else 0:.3f}")
         total_groundedness += hits / cnt if cnt > 0 else 0
     return total_groundedness / len(df_train) if len(df_train) > 0 else 0 
 

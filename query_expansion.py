@@ -521,6 +521,11 @@ def test_query_expansion():
         combined = expander.combined_llm_expansion(query)
         for i, comb in enumerate(combined):
             print(f"   {i+1}. {comb}")
+
+        print("\n5. Multi-perspective (1 API call):")
+        combined = expander.multi_perspective_expansion(query)
+        for i, comb in enumerate(combined):
+            print(f"   {i+1}. {comb}")
         
         print("\n5. Optimized All Techniques Combined:")
         all_expanded = expander.expand_query(query, max_expansions=8)
