@@ -482,7 +482,7 @@ with tab3:
     
     baseline_llm_train = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.35, 0.40, 0.41],
+        'string_presence@k': [0.47, 0.40, 0.41],
         'rouge_l@k': [0.21, 0.23, 0.22],
         'bleu_4@k': [0.03, 0.03, 0.04],
         'groundedness@k': [0.57, 0.61, 0.64],

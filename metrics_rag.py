@@ -731,7 +731,7 @@ Nhiệm vụ của bạn:
 # Hàm Rouge-L
 
 from rouge import Rouge
-def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -740,11 +740,8 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
 
     for index, row in df_train.iterrows():
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
-
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional reranking and query expansion
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -781,7 +778,7 @@ Nhiệm vụ của bạn:
 
 # Hàm BLEU-4
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -790,11 +787,8 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
 
     for index, row in df_train.iterrows():
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
-
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional reranking and query expansion
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -832,7 +826,7 @@ Nhiệm vụ của bạn:
 
 # Hàm Groundedness (LLM Answer - Hallucination Detection)\
 
-def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -842,11 +836,8 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
         hits = 0
         cnt = 0
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
-
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional reranking and query expansion
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -946,7 +937,7 @@ def generate_related_questions(response, embedding):
     related_questions = get_llm_response(messages_related)
     return related_questions
 
-def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -956,11 +947,8 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
         hits = 0
         cnt = 0
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
-
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional reranking and query expansion
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -989,6 +977,7 @@ Nhiệm vụ của bạn:
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
+        user_embedding = embedding.encode(query)
         response = get_llm_response(messages)
 
         # Dùng câu trả lời của LLM để sinh ra các câu hỏi liên quan
@@ -1005,7 +994,7 @@ Nhiệm vụ của bạn:
 
 # Hàm Noise Sensitivity (LLM Answer - Robustness to Hallucination)
 
-def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5):
+def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
     df_train = pd.read_excel(file_train)
 
@@ -1015,11 +1004,8 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5)
         hits = 0
         cnt = 0
         query = row['Query']
-        # Tạo embedding cho câu hỏi của người dùng
-        user_embedding = embedding.encode(query)
-
-        # Tìm kiếm thông tin liên quan trong cơ sở dữ liệu
-        results = vector_db.query("information", user_embedding, limit=k)
+        # Retrieve contexts with optional reranking and query expansion
+        results = get_contexts(query, embedding, vector_db, reranker, use_query_expansion, k)
         reply = row['Ground truth answer']
         messages = [
             {
@@ -1091,7 +1077,7 @@ Nhiệm vụ của bạn:
 
 # Hàm để tính toán toàn bộ metrics trong module LLM Answer
 
-def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector_db, train, reranker=None):
+def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector_db, train, reranker=None, use_query_expansion=True):
     # Tạo ra 1 bảng csv, cột thứ nhất là K value, các cột còn lại là metrics. Sẽ có 3 hàng tương trưng với k = 3, 5, 7
     k_values = [3, 5, 7]
     metrics = {
@@ -1106,12 +1092,12 @@ def calculate_metrics_llm_answer(file_clb_proptit, file_train, embedding, vector
     # Lưu 2 chữ số thập phân cho các metrics
     for k in k_values:
         metrics["K"].append(k)
-        metrics["string_presence@k"].append(round(string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["rouge_l@k"].append(round(rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["bleu_4@k"].append(round(bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["groundedness@k"].append(round(groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["response_relevancy@k"].append(round(response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
-        metrics["noise_sensitivity@k"].append(round(noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k), 2))
+        metrics["string_presence@k"].append(round(string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
+        metrics["rouge_l@k"].append(round(rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
+        metrics["bleu_4@k"].append(round(bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
+        metrics["groundedness@k"].append(round(groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
+        metrics["response_relevancy@k"].append(round(response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
+        metrics["noise_sensitivity@k"].append(round(noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k, reranker, use_query_expansion), 2))
     # Chuyển đổi metrics thành DataFrame
     metrics_df = pd.DataFrame(metrics)
     # Lưu DataFrame vào file csv
