@@ -14,7 +14,7 @@ class Embeddings:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if self.device == 'cuda':
             print(f"[Embeddings] Using device: {self.device}")
-        elif type == "sentence_transformers":
+        if type == "sentence_transformers":
             self.client = SentenceTransformer(
                 model_name,
                 device=self.device,
