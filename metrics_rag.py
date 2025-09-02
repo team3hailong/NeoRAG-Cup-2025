@@ -706,7 +706,7 @@ Nhiệm vụ của bạn:
             "role": "user",
             "content": f"Câu trả lời: {reply}"
         })
-        # Gọi API để trích xuất các thực thể
+        # Gọi  API để trích xuất các thực thể
         entities_str = get_llm_response(messages_entities)
         # Trích xuất danh sách ở đầu phản hồi
         match = re.search(r'\[.*?\]', entities_str)
@@ -771,9 +771,14 @@ Nhiệm vụ của bạn:
         })
         # Gọi API để lấy câu trả lời
         response = get_llm_response(messages)
-        scores = rouge.get_scores(response, reply)
-        rouge_l = scores[0]['rouge-l']['f']
+        try:
+            scores = rouge.get_scores(response, reply)
+            rouge_l = scores[0]['rouge-l']['f']
+        except ValueError:
+            rouge_l = 0.0
+            print(f"Query {index+1}/{len(df_train)} - Error computing Rouge-L, set to {rouge_l:.3f}")
         total_rouge_l += rouge_l
+        print(f"Query {index+1}/{len(df_train)} - Rouge-L: {rouge_l:.3f}")
     return total_rouge_l / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm BLEU-4
