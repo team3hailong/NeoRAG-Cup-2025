@@ -104,7 +104,8 @@ load_dotenv()
 from groq import Groq
 
 client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=os.getenv("GROQ_API_KEY"),
+    enable_telemetry=False
 )
 MODEL_NAME="meta-llama/llama-4-maverick-17b-128e-instruct"
 
@@ -985,14 +986,22 @@ Nhiệm vụ của bạn:
         user_embedding = embedding.encode(query)
         response = get_llm_response(messages)
 
-        # Dùng câu trả lời của LLM để sinh ra các câu hỏi liên quan
-        related_questions = generate_related_questions(response, embedding) # "["CLB Lập Trình PTIT được thành lập khi nào?", "Slogan của CLB là gì?", "Mục tiêu của CLB là gì?"]"
-        related_questions = eval(related_questions) if related_questions else []  # Chuyển đổi chuỗi thành danh sách
+        raw_related = generate_related_questions(response, embedding)
+        related_questions = []
+        if raw_related:
+            raw_str = raw_related.strip()
+            if raw_str.startswith('[') and raw_str.endswith('"'):
+                raw_str = raw_str[:-1]
+            try:
+                related_questions = ast.literal_eval(raw_str)
+            except Exception:
+                related_questions = []
         for question in related_questions:
             question_embedding = embedding.encode(question)
             # Tính score relevancy giữa câu hỏi và query
             score = similarity(user_embedding, question_embedding)
             hits += score
+        print(f"Query {index+1}/{len(df_train)} - Related questions generated: {len(related_questions)} - Total relevancy score: {hits:.3f}")
         total_relevancy += hits / len(related_questions) if len(related_questions) > 0 else 0
     return total_relevancy / len(df_train) if len(df_train) > 0 else 0
 

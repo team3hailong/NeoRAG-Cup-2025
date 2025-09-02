@@ -304,7 +304,7 @@ with tab1:
                     context = "\n\n".join([doc.get('information', '') for doc in results])
                     
                     if os.getenv("GROQ_API_KEY"):
-                        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                        client = Groq(api_key=os.getenv("GROQ_API_KEY"), enable_telemetry=False)
                         
                         prompt = f"""
                         **Bối cảnh:**
