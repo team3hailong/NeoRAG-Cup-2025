@@ -20,7 +20,7 @@ class QueryExpansion:
     """
     
     def __init__(self, model_name="meta-llama/llama-4-maverick-17b-128e-instruct"):
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"), enable_telemetry=False)
+        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.model_name = model_name
         
         # Domain-specific keywords cho CLB ProPTIT - được trích xuất từ dữ liệu thực tế

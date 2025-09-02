@@ -104,8 +104,7 @@ load_dotenv()
 from groq import Groq
 
 client = Groq(
-    api_key=os.getenv("GROQ_API_KEY"),
-    enable_telemetry=False
+    api_key=os.getenv("GROQ_API_KEY")
 )
 MODEL_NAME="meta-llama/llama-4-maverick-17b-128e-instruct"
 
