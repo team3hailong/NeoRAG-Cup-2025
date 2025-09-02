@@ -489,6 +489,30 @@ with tab3:
         'response_relevancy@k': [0.80, 0.80, 0.80],
         'noise_sensitivity@k': [0.51, 0.53, 0.51]
     }
+
+    baseline_retrieval_test = {
+        'k': [3, 5, 7],
+        'hit@k': [0.93, 0.93, 0.97],
+        'recall@k': [0.73, 0.76, 0.82],
+        'precision@k': [0.47, 0.3, 0.24],
+        'f1@k': [0.57, 0.43, 0.37],
+        'map@k': [0.86, 0.84, 0.85],
+        'mrr@k': [0.87, 0.87, 0.89],
+        'ndcg@k': [0.88, 0.87, 0.89],
+        'context_precision@k': [0.88, 0.74, 0.57],
+        'context_recall@k': [0.66, 0.53, 0.45],
+        'context_entities_recall@k': [0.61, 0.62, 0.67]
+    }
+
+    baseline_llm_test = {
+        'k': [3, 5, 7],
+        'string_presence@k': [0.53, 0.40, 0.41],
+        'rouge_l@k': [0.21, 0.23, 0.22],
+        'bleu_4@k': [0.03, 0.03, 0.04],
+        'groundedness@k': [0.57, 0.61, 0.64],
+        'response_relevancy@k': [0.80, 0.80, 0.80],
+        'noise_sensitivity@k': [0.51, 0.53, 0.51]
+    }
     
     col1, col2 = st.columns(2)
     
