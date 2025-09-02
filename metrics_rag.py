@@ -1077,6 +1077,7 @@ Nhiệm vụ của bạn:
             sensitivity_reply = get_llm_response(messages_sensitivity)
             if sensitivity_reply == "0":
                 hits += 1
+        print(f"Query {index+1}/{len(df_train)} - Non-supported sentences: {hits} / {len(sentences)} - Noise Sensitivity: {hits / len(sentences) if len(sentences) > 0 else 0:.3f}")
         total_sensitivity += hits / len(sentences) if len(sentences) > 0 else 0
     return total_sensitivity / len(df_train) if len(df_train) > 0 else 0
 
