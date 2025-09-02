@@ -826,6 +826,7 @@ Nhiệm vụ của bạn:
         candidate = response.split()
         bleu_4 = sentence_bleu([reference], candidate, smoothing_function=smoothing_function)
         total_bleu_4 += bleu_4
+        print(bleu_4)
     return total_bleu_4 / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Groundedness (LLM Answer - Hallucination Detection)\
