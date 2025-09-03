@@ -49,5 +49,5 @@ from metrics_rag import groundedness_k, noise_sensitivity_k, hit_k, recall_k, pr
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("noise_sensitivity@5:", noise_sensitivity_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
+print("groundedness_k@5:", groundedness_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
 print("noise_sensitivity@3:", noise_sensitivity_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=3, reranker=reranker, use_query_expansion=True))

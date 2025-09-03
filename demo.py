@@ -484,10 +484,10 @@ with tab3:
         'k': [3, 5, 7],
         'string_presence@k': [0.47, 0.50, 0.48],
         'rouge_l@k': [0.22, 0.21, 0.21],
-        'bleu_4@k': [0.04, 0.030, 0.03],
+        'bleu_4@k': [0.04, 0.03, 0.03],
         'groundedness@k': [0.570, 0.610, 0.640],
         'response_relevancy@k': [0.850, 0.85, 0.850],
-        'noise_sensitivity@k': [0.510, 0.530, 0.510]
+        'noise_sensitivity@k': [0.00, 0.00, 0.00]
     }
     
     col1, col2 = st.columns(2)

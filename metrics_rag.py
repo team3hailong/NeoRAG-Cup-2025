@@ -907,7 +907,7 @@ Nhiệm vụ của bạn:
             elif groundedness_reply == "unsupported" or groundedness_reply == "contradictory":
                 cnt += 1
         print(f"Query {index+1}/{len(df_train)} - Supported sentences: {hits} / {cnt} - Groundedness: {hits / cnt if cnt > 0 else 0:.3f}")
-        total_groundedness += hits / cnt if cnt > 0 else 0
+        total_groundedness += hits / cnt if cnt > 0 else 1
     return total_groundedness / len(df_train) if len(df_train) > 0 else 0 
 
 # Hàm Response Relevancy (LLM Answer - Measures relevance)
