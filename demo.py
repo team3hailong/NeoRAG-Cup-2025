@@ -300,8 +300,18 @@ with tab1:
                             if 'score' in doc:
                                 st.write(f"**Score:** {doc['score']:.4f}")
                     
-                    # Generate answer using Groq (if API key available)
-                    context = "\n\n".join([doc.get('information', '') for doc in results])
+                    # Generate answer using Groq
+                    keywords = [word.strip(',.?!"') for word in user_query.split() if len(word) > 2]
+                    filtered_docs = []
+                    for doc in results:
+                        info = doc.get('information', '')
+                        segments = [sent for sent in info.split('.') if any(kw.lower() in sent.lower() for kw in keywords)]
+                        filtered = '.'.join(segments) if segments else info
+                        filtered_docs.append(filtered)
+                    context = "\n\n".join(filtered_docs)
+                    max_context_chars = 3000
+                    if len(context) > max_context_chars:
+                        context = context[:max_context_chars] + "\n\n...(Nội dung đã bị cắt ngắn)..."
                     
                     if os.getenv("GROQ_API_KEY"):
                         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -311,16 +321,11 @@ with tab1:
                         Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
 
                         **Ví dụ (Few-shot Examples):**
-
-                        *   **Ví dụ 1: Trả lời về team dự án**
-                            *   **Câu hỏi:** "CLB có mấy team dự án ạ?"
-                            *   **Câu trả lời:** "Hiện tại CLB ProPTIT có 6 team dự án: Team AI, Team Mobile, Team Data, Team Game, Team Web, Team Backend. Các em sẽ vào team dự án sau khi đã hoàn thành khóa học Java."
-
-                        *   **Ví dụ 2: Trả lời về quy trình tuyển thành viên**
+                        *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
                             *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
                             *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
 
-                        *   **Ví dụ 3: Thông tin không có trong ngữ cảnh**
+                        *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
                             *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
                             *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
 
@@ -468,7 +473,7 @@ with tab3:
     # Create baseline data from the instructions
     retrieval_train = {
         'k': [3, 5, 7],
-        'hit@k': [0.59, 0.57, 0.76],
+        'hit@k': [0.59, 0.72, 0.76],
         'recall@k': [0.41, 0.49, 0.54],
         'precision@k': [0.21, 0.16, 0.13],
         'f1@k': [0.28, 0.25, 0.21],
@@ -485,8 +490,8 @@ with tab3:
         'string_presence@k': [0.47, 0.50, 0.48],
         'rouge_l@k': [0.22, 0.21, 0.21],
         'bleu_4@k': [0.04, 0.03, 0.03],
-        'groundedness@k': [0.570, 0.610, 0.640],
-        'response_relevancy@k': [0.850, 0.85, 0.850],
+        'groundedness@k': [0.69, 0.75, 0.78],
+        'response_relevancy@k': [0.85, 0.85, 0.85],
         'noise_sensitivity@k': [0.00, 0.00, 0.00]
     }
     

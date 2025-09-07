@@ -17,6 +17,7 @@ embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
 # - Backtrack: model_name="BAAI/bge-reranker-v2-m3"
 reranker = Reranker(model_name="namdp-ptit/ViRanker") if True else None
+use_query_expansion = True
 
 # TODO: Embedding từng document trong file CLB_PROPTIT.docx và lưu vào DB. 
 # Code dưới là sử dụng mongodb, các em có thể tự sửa lại cho phù hợp với DB mà mình đang dùng
@@ -42,12 +43,11 @@ else:
 
 # Các em có thể import từng hàm một để check kết quả, trick là nên chạy trên data nhỏ thôi để xem hàm có chạy đúng hay ko rồi mới chạy trên toàn bộ data
 
-from metrics_rag import groundedness_k, noise_sensitivity_k, hit_k, recall_k, precision_k, rouge_l_k, string_presence_k, context_entities_recall_k, ndcg_k
+from metrics_rag import groundedness_k, response_relevancy_k, hit_k, recall_k, precision_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k
 
 # df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
 # df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker) # đặt là True nếu là tập train, False là tập test
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("groundedness_k@5:", groundedness_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=True))
-print("noise_sensitivity@3:", noise_sensitivity_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=3, reranker=reranker, use_query_expansion=True))
+print("Groundedness@5:", groundedness_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))

@@ -81,41 +81,54 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
 
 load_dotenv()
 
-# Option 1: Ollama (local)
-# client = openai.OpenAI(
-#     base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-#     api_key=os.getenv("OLLAMA_API_KEY", "ollama")
-# )
-# # Default model name for Ollama; change via environment variable OLLAMA_MODEL if needed.
-# MODEL_NAME = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
-
-# Option 2: Gemini Pro 
-# client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-# MODEL_NAME = "gemini-1.5-flash"
+LLM_PROVIDER = "nvidia" # "groq" or "nvidia"
 
 from groq import Groq
 
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
-)
-MODEL_NAME="meta-llama/llama-4-maverick-17b-128e-instruct"
+# client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
+
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "qwen/qwen2.5-coder-7b-instruct")
+NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
-def get_llm_response(messages, model_name=MODEL_NAME):
+def get_llm_response(messages):
     max_retries = 3
     backoff = 1
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                temperature=0.0,
-                max_completion_tokens=848,
-                top_p=1,
-                stream=False,
-                stop=None
-            )
-            return response.choices[0].message.content
+            if LLM_PROVIDER == "nvidia" and NVIDIA_API_KEY:
+                headers = {
+                    "Authorization": f"Bearer {NVIDIA_API_KEY}",
+                    "accept": "application/json",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": NVIDIA_MODEL,
+                    "messages": messages,
+                    "max_tokens": 1024,
+                    "stream": False,
+                    "temperature": 0.0,
+                    "top_p": 1,
+                    "frequency_penalty": 0,
+                    "presence_penalty": 0
+                }
+                resp = requests.post(NVIDIA_ENDPOINT, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
+            else:
+                response = client.chat.completions.create(
+                    model=GROQ_MODEL,
+                    messages=messages,
+                    temperature=0.0,
+                    max_completion_tokens=848,
+                    top_p=1,
+                    stream=False,
+                    stop=None
+                )
+                return response.choices[0].message.content
         except Exception as e:
             print(f"Error calling LLM (attempt {attempt}/{max_retries}): {e}")
             if attempt < max_retries:
@@ -563,7 +576,13 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
         except Exception:
             # Fallback: extract first bracketed list and parse
             match = re.search(r'\[.*?\]', entities_str, re.DOTALL)
-            entities = ast.literal_eval(match.group(0))
+            if match:
+                try:
+                    entities = ast.literal_eval(match.group(0))
+                except Exception:
+                    entities = []
+            else:
+                entities = []
         tmp = len(entities)
         for result in results:
             context = result['information']
@@ -572,7 +591,7 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
                     hits += 1
                     entities.remove(entity.strip())
         total_recall += hits / tmp if tmp > 0 else 0
-        print(f"Query {index+1}/{len(df_train)} - Entities extracted: {tmp} - Hits: {hits}")
+        print(f"Query {index+1}/{len(df_train)} - Total Recall: {total_recall:.3f}")
         time.sleep(1)
 
     return total_recall / len(df_train) if len(df_train) > 0 else 0
@@ -906,8 +925,8 @@ Nhiệm vụ của bạn:
                 cnt += 1
             elif groundedness_reply == "unsupported" or groundedness_reply == "contradictory":
                 cnt += 1
-        print(f"Query {index+1}/{len(df_train)} - Supported sentences: {hits} / {cnt} - Groundedness: {hits / cnt if cnt > 0 else 0:.3f}")
         total_groundedness += hits / cnt if cnt > 0 else 1
+        print(f"Query {index+1}/{len(df_train)} - Groundedness: {hits}/{cnt} - Total: {total_groundedness:.3f}")
     return total_groundedness / len(df_train) if len(df_train) > 0 else 0 
 
 # Hàm Response Relevancy (LLM Answer - Measures relevance)

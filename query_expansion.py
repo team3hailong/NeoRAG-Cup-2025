@@ -33,7 +33,7 @@ class QueryExpansion:
             ],
             "thanh_vien": [
                 'thành viên', 'member', 'sinh viên', 'học viên', 'người tham gia', 
-                'bạn', 'em', 'anh', 'chị', 'các em', 'mọi người', 'học sinh'
+                'bạn', 'em', 'anh', 'chị', 'các em', 'mọi người', 'học sinh', 'mem'
             ],
             "hoat_dong": [
                 'hoạt động', 'sự kiện', 'event', 'workshop', 'seminar',
@@ -155,44 +155,7 @@ Ngữ cảnh CLB ProPTIT:
             pass
         
         # Fallback 
-        return self.rule_based_expansion(query)
-    
-    def rule_based_expansion(self, query: str) -> List[str]:
-        expanded = [query]
-        query_lower = query.lower()
-
-        # 1. Thay thế từ đồng nghĩa
-        for category, synonyms in self.proptit_keywords.items():
-            for synonym in synonyms[:2]:  # Giảm số lượng để tránh noise
-                pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
-                if pattern.search(query):
-                    # Chỉ replace nếu có nghĩa trong context
-                    for alternative in synonyms[:1]:  # Chỉ lấy 1 alternative tốt nhất
-                        if alternative.lower() != synonym.lower():
-                            new_query = pattern.sub(alternative, query)
-                            if new_query != query and new_query not in expanded:
-                                expanded.append(new_query)
-                                if len(expanded) >= 3:  # Giảm limit
-                                    return expanded
-                    break
-
-        # 2. Thay thế câu hỏi theo ngữ cảnh
-        if any(word in query_lower for word in ["làm sao", "như thế nào", "cách"]):
-            base = re.sub(r'\b(làm sao|như thế nào|cách)\s*', '', query, flags=re.IGNORECASE).strip()
-            if base:
-                expanded.append(f"Quy trình {base}")
-        
-        elif any(word in query_lower for word in ["là gì", " gì"]) and "bao nhiêu" not in query_lower:
-            base = re.sub(r'\b(là gì|gì)\s*\??', '', query, flags=re.IGNORECASE).strip()
-            if base:
-                expanded.append(f"Thông tin về {base}")
-        
-        elif any(word in query_lower for word in ["khi nào", "năm nào"]):
-            base = re.sub(r'\b(khi nào|năm nào)\s*', '', query, flags=re.IGNORECASE).strip()
-            if base:
-                expanded.append(f"Thời gian {base}")
-        
-        return list(set(expanded))[:4] 
+        return self.query_rewriting(query)
     
     def query_rewriting(self, query: str, num_variants: int = 2) -> List[str]:  
         system_prompt = """Viết lại câu hỏi CLB ProPTIT thành 2 cách khác. Format: ["cách 1", "cách 2"]"""
@@ -328,26 +291,6 @@ Ngữ cảnh CLB ProPTIT:
         
         return expanded[:4]  
     
-    def multi_perspective_expansion(self, query: str) -> List[str]:
-        perspectives = [query]
-        
-        # Simple perspective templates
-        if "gì" in query.lower():
-            base = query.replace("gì", "").strip()
-            perspectives.extend([
-                f"Tại sao {base}",
-                f"Lợi ích {base}"
-            ])
-        
-        if "như thế nào" in query.lower() or "làm sao" in query.lower():
-            base = re.sub(r'\b(như thế nào|làm sao)\b', '', query, flags=re.IGNORECASE).strip()
-            perspectives.extend([
-                f"Điều kiện {base}",
-                f"Quy trình {base}"
-            ])
-        
-        return perspectives[:3]
-    
     def document_structure_expansion(self, query: str) -> List[str]:
         doc_keywords = {
             "thành lập": ["Lịch sử CLB ProPTIT", "9/10/2011 ProPTIT"],
@@ -387,11 +330,6 @@ Ngữ cảnh CLB ProPTIT:
         all_expanded = [query]
         
         try:
-            # 1. Rule-based expansion
-            if "rule_based" in techniques:
-                rule_based = self.rule_based_expansion(query)
-                all_expanded.extend(rule_based[1:])
-            
             # 2. Synonym expansion 
             if "synonym" in techniques:
                 synonyms = self.synonym_expansion(query)
@@ -411,10 +349,6 @@ Ngữ cảnh CLB ProPTIT:
             if "decomposition" in techniques:
                 decomposed = self.query_decomposition(query)
                 all_expanded.extend(decomposed[1:])
-            
-            if "multi_perspective" in techniques:
-                perspectives = self.multi_perspective_expansion(query)
-                all_expanded.extend(perspectives[1:])
             
             if "document_structure" in techniques:
                 structure_aware = self.document_structure_expansion(query)
@@ -502,11 +436,6 @@ def test_query_expansion():
         print(f"Original Query: {query}")
         print(f"{'='*50}")
         
-        print("\n1. Rule-based Expansion (Fast):")
-        rule_based = expander.rule_based_expansion(query)
-        for i, rb in enumerate(rule_based):
-            print(f"   {i+1}. {rb}")
-        
         print("\n2. Synonym Expansion (Rule-based):")
         synonyms = expander.synonym_expansion(query)
         for i, syn in enumerate(synonyms):
@@ -519,11 +448,6 @@ def test_query_expansion():
         
         print("\n4. Combined LLM Expansion (1 API call):")
         combined = expander.combined_llm_expansion(query)
-        for i, comb in enumerate(combined):
-            print(f"   {i+1}. {comb}")
-
-        print("\n5. Multi-perspective (1 API call):")
-        combined = expander.multi_perspective_expansion(query)
         for i, comb in enumerate(combined):
             print(f"   {i+1}. {comb}")
         
