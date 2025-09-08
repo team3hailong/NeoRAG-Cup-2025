@@ -89,7 +89,7 @@ from groq import Groq
 # GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "qwen/qwen2.5-coder-7b-instruct")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "writer/palmyra-med-70b")
 NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
 
 # 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
@@ -107,7 +107,7 @@ def get_llm_response(messages):
                 payload = {
                     "model": NVIDIA_MODEL,
                     "messages": messages,
-                    "max_tokens": 1024,
+                    "max_tokens": 300,
                     "stream": False,
                     "temperature": 0.0,
                     "top_p": 1,
@@ -115,7 +115,11 @@ def get_llm_response(messages):
                     "presence_penalty": 0
                 }
                 resp = requests.post(NVIDIA_ENDPOINT, headers=headers, json=payload)
-                resp.raise_for_status()
+                try:
+                    resp.raise_for_status()
+                except requests.HTTPError as http_err:
+                    print(f"HTTPError calling NVIDIA API: {http_err}, Response body: {resp.text}")
+                    raise
                 data = resp.json()
                 return data["choices"][0]["message"]["content"]
             else:
