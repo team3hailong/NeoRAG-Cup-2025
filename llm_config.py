@@ -13,6 +13,7 @@ load_dotenv()
 
 # Configuration
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia")
+
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "writer/palmyra-med-70b")  
 NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
@@ -33,24 +34,26 @@ if GROQ_API_KEY:
 if NVIDIA_API_KEY:
     print(f"✅ NVIDIA client ready: {NVIDIA_MODEL}")
 
-def get_llm_response(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 300) -> str:
+def get_llm_response(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 300, max_retries: int = 3) -> str:
     """
     Đơn giản gọi LLM - tự động chọn provider có sẵn
     """
-    # Try NVIDIA first if configured
+    providers = []
+    delay = 1
     if LLM_PROVIDER == "nvidia" and NVIDIA_API_KEY:
-        try:
-            return _call_nvidia(messages, temperature, max_tokens)
-        except Exception as e:
-            print(f"NVIDIA failed: {e}")
-    
-    # Try GROQ as fallback or primary
+        providers.append(("NVIDIA", _call_nvidia))
     if groq_client:
-        try:
-            return _call_groq(messages, temperature, max_tokens)
-        except Exception as e:
-            print(f"GROQ failed: {e}")
-    
+        providers.append(("GROQ", _call_groq))
+    for name, func in providers:
+        for attempt in range(max_retries):
+            try:
+                return func(messages, temperature, max_tokens)
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    print(f"{name} failed after {max_retries} attempts: {e}")
+                else:
+                    time.sleep(delay)
+                    delay *= 2
     print("❌ No LLM provider available")
     return ""
 

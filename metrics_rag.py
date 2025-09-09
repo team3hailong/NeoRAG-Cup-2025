@@ -11,61 +11,48 @@ from query_expansion import QueryExpansion
 
 # Helper to retrieve and optionally rerank results with query expansion
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
-    """
-    Enhanced retrieval function với Query Expansion techniques
-    
-    Args:
-        query: Câu hỏi gốc
-        embedding: Model embedding
-        vector_db: Vector database
-        reranker: Reranking model (optional)
-        k: Số lượng documents cần lấy
-        use_query_expansion: Có sử dụng query expansion hay không
-    """
-    all_results = []
-    seen_docs = set()
-    
-    if use_query_expansion:
+    if not use_query_expansion:
+        user_embedding = embedding.encode(query)
+        initial_limit = k * 2 if reranker else k
+        all_results = vector_db.query("information", user_embedding, limit=initial_limit)
+    else:
         query_expander = QueryExpansion()
         
         expanded_queries = query_expander.expand_query(
             query, 
-            techniques=["rewriting", "synonym", "context"],
-            max_expansions=3
+            techniques=["synonym", "context"],
+            max_expansions=2
         )
         
-        ranked_queries = query_expander.rank_expanded_queries(query, expanded_queries, embedding)
+        all_results = []
+        seen_docs = set()
         
-        weights = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
-        
-        for i, exp_query in enumerate(ranked_queries):
-            weight = weights[i] if i < len(weights) else 0.2
+        for i, exp_query in enumerate(expanded_queries):
+            if i == 0: # Câu gốc có weight cao nhất
+                weight = 1.0
+                retrieval_limit = k  
+            else:
+                weight = 0.7 - (i-1) * 0.1  
+                retrieval_limit = max(2, k // 2)  
             
-            # Tạo embedding cho câu hỏi mở rộng
             user_embedding = embedding.encode(exp_query)
+            results = vector_db.query("information", user_embedding, limit=retrieval_limit * 2)
             
-            initial_limit = k * 2 if reranker else k
-            results = vector_db.query("information", user_embedding, limit=initial_limit)
-            
-            # Thêm weight score và tránh duplicate
-            for result in results:
+            for j, result in enumerate(results):
                 doc_id = result.get('title', str(hash(result['information'])))
                 if doc_id not in seen_docs:
+                    position_penalty = 1.0 / (j + 1)  
+                    result['combined_score'] = weight * position_penalty
                     result['expansion_weight'] = weight
                     result['source_query'] = exp_query
                     all_results.append(result)
                     seen_docs.add(doc_id)
-        all_results.sort(key=lambda x: x.get('expansion_weight', 0), reverse=True)
-        all_results = all_results[:k]
         
-    else:
-        # Retrieval truyền thống không có query expansion
-        user_embedding = embedding.encode(query)
-        initial_limit = k * 2 if reranker else k
-        all_results = vector_db.query("information", user_embedding, limit=initial_limit)
+        all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
+        all_results = all_results[:k * 2] 
     
     if reranker and all_results:
-        top_results = all_results[:int(k*1.5)] if len(all_results) > int(k*1.5) else all_results
+        top_results = all_results[:min(k * 2, len(all_results))]
         passages = [res['information'] for res in top_results]
         ranked_scores, ranked_passages = reranker(query, passages)
         
@@ -594,20 +581,7 @@ def calculate_metrics_retrieval(file_clb_proptit, file_train , embedding, vector
 
 # Các hàm đánh giá LLM Answer
 def get_contexts(query, embedding, vector_db, reranker=None, use_query_expansion=True, k=5):
-    """Retrieve contexts using query expansion and optional reranking."""
-    expander = QueryExpansion()
-    # Expand queries if enabled
-    queries = expander.combined_llm_expansion(query) if use_query_expansion else [query]
-    all_results = []
-    for q in queries:
-        emb = embedding.encode(q)
-        all_results.extend(vector_db.query("information", emb, limit=k))
-    # Rerank passages if reranker is provided
-    if reranker:
-        passages = [r["information"] for r in all_results]
-        _, reranked = reranker(query, passages)
-        return [{"information": p} for p in reranked[:k]]
-    return all_results[:k]
+    return retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 # Hàm String Presence
 
 def string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):

@@ -16,11 +16,12 @@ from metrics_rag import (
     context_recall_k, context_entities_recall_k, ndcg_k,
     retrieve_and_rerank
 )
-from groq import Groq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+import llm_config
+from llm_config import get_llm_response
 
 # Page config
 st.set_page_config(
@@ -149,24 +150,15 @@ with st.sidebar:
     
     # LLM Configuration
     st.markdown("### 🤖 LLM Configuration")
-    llm_model = st.selectbox(
-        "LLM Model:",
-        [
-            "meta-llama/llama-4-maverick-17b-128e-instruct",
-            "llama-3.3-70b-versatile",
-            "llama3-70b-8192", 
-            "llama-3.1-8b-instant",
-            "gemma2-9b-it",
-            "qwen/qwen3-32b",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "allam-2-7b",
-            "moonshotai/kimi-k2-instruct",
-            "compound-beta",
-            "deepseek-r1-distill-llama-70b"
-        ],
-        index=0
-    )
-    
+    llm_provider = st.selectbox("LLM Provider:", ["groq", "nvidia"], index=0)
+    llm_config.LLM_PROVIDER = llm_provider
+    if llm_provider == "groq":
+        llm_model = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        llm_config.GROQ_MODEL = llm_model
+    else:
+        llm_model = "writer/palmyra-med-70b"
+        llm_config.NVIDIA_MODEL = llm_model
+    st.info(f"🤖 LLM Model cố định: {llm_model}")
     # Advanced LLM settings
     with st.expander("🔧 Tham số LLM", expanded=False):
         col1, col2 = st.columns(2)
@@ -300,8 +292,8 @@ with tab1:
                             if 'score' in doc:
                                 st.write(f"**Score:** {doc['score']:.4f}")
                     
-                    # Generate answer using Groq
-                    keywords = [word.strip(',.?!"') for word in user_query.split() if len(word) > 2]
+                    # Generate answer using selected LLM provider
+                    keywords = [word.strip(',.?\!"') for word in user_query.split() if len(word) > 2]
                     filtered_docs = []
                     for doc in results:
                         info = doc.get('information', '')
@@ -313,54 +305,45 @@ with tab1:
                     if len(context) > max_context_chars:
                         context = context[:max_context_chars] + "\n\n...(Nội dung đã bị cắt ngắn)..."
                     
-                    if os.getenv("GROQ_API_KEY"):
-                        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                        
-                        prompt = f"""
-                        **Bối cảnh:**
-                        Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
+                    # Build prompt
+                    prompt = f"""
+                    **Bối cảnh:**
+                    Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
 
-                        **Ví dụ (Few-shot Examples):**
-                        *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
-                            *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
-                            *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
+                    **Ví dụ (Few-shot Examples):**
+                    *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
+                        *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
+                        *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
 
-                        *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
-                            *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
-                            *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
+                    *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
+                        *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
+                        *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
 
-                        **Thông tin tham khảo:**
-                        ---
-                        {context}
-                        ---
+                    **Thông tin tham khảo:**
+                    ---
+                    {context}
+                    ---
 
-                        **Yêu cầu:**
-                        Dựa vào **duy nhất** "Thông tin tham khảo" ở trên và học theo phong cách từ các ví dụ, hãy trả lời câu hỏi sau đây của người dùng.
+                    **Yêu cầu:**
+                    Dựa vào **duy nhất** "Thông tin tham khảo" ở trên và học theo phong cách từ các ví dụ, hãy trả lời câu hỏi sau đây của người dùng.
 
-                        **Câu hỏi:** "{user_query}"
+                    **Câu hỏi:** "{user_query}"
 
-                        **Quy tắc trả lời:**
-                        1.  **Chính xác và Trung thực:** Chỉ sử dụng thông tin đã cho. Nếu thông tin không có trong tài liệu, hãy trả lời như "Ví dụ 2".
-                        2.  **Chi tiết và Rõ ràng:** Trả lời đầy đủ, chi tiết. Sử dụng gạch đầu dòng hoặc định dạng phù hợp nếu câu trả lời có nhiều ý hoặc cần liệt kê.
-                        3.  **Tự nhiên và Thân thiện:** Sử dụng ngôn ngữ tiếng Việt tự nhiên, giọng văn thân thiện như đang trò chuyện.
-                        4.  **Không suy diễn:** Tuyệt đối không suy diễn, không bịa đặt hoặc thêm thông tin không có trong văn bản.
+                    **Quy tắc trả lời:**
+                    1.  **Chính xác và Trung thực:** Chỉ sử dụng thông tin đã cho. Nếu thông tin không có trong tài liệu, hãy trả lời như "Ví dụ 2".
+                    2.  **Chi tiết và Rõ ràng:** Trả lời đầy đủ, chi tiết. Sử dụng gạch đầu dòng hoặc định dạng phù hợp nếu câu trả lời có nhiều ý hoặc cần liệt kê.
+                    3.  **Tự nhiên và Thân thiện:** Sử dụng ngôn ngữ tiếng Việt tự nhiên, giọng văn thân thiện như đang trò chuyện.
+                    4.  **Không suy diễn:** Tuyệt đối không suy diễn, không bịa đặt hoặc thêm thông tin không có trong văn bản.
 
-                        **Câu trả lời của bạn (bằng tiếng Việt):**
-                        """
-                        
-                        response = client.chat.completions.create(
-                            model=llm_model,
-                            messages=[
-                                {"role": "system", "content": "Bạn là một trợ lý AI chuyên gia về CLB Lập trình ProPTIT, luôn trả lời bằng tiếng Việt dựa trên thông tin được cung cấp."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            max_tokens=max_tokens,
-                            temperature=temperature
-                        )
-                        
-                        answer = response.choices[0].message.content
-                    else:
-                        answer = f"Dựa vào thông tin được truy xuất, đây là những thông tin liên quan đến câu hỏi '{user_query}':\n\n{context[:500]}...\n\n(Lưu ý: Vui lòng cấu hình GROQ_API_KEY để sử dụng LLM)"
+                    **Câu trả lời của bạn (bằng tiếng Việt):**
+                    """
+                    # Prepare messages
+                    messages = [
+                        {"role": "system", "content": "Bạn là một trợ lý AI chuyên gia về CLB Lập trình ProPTIT, luôn trả lời bằng tiếng Việt dựa trên thông tin được cung cấp."},
+                        {"role": "user", "content": prompt}
+                    ]
+                    # Get response
+                    answer = get_llm_response(messages, temperature=temperature, max_tokens=max_tokens)
                     
                     # Add to chat history
                     st.session_state.chat_history.append({

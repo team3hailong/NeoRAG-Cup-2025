@@ -15,10 +15,8 @@ class QueryExpansion:
     
     Các kỹ thuật được áp dụng:
     1. Query Rewriting - Viết lại câu hỏi với nhiều cách diễn đạt khác nhau
-    2. Query Decomposition - Phân tách câu hỏi phức tạp thành các câu hỏi con đơn giản
     3. Synonym/Paraphrase Expansion - Mở rộng với từ đồng nghĩa và cách diễn đạt khác
     4. Context-Aware Expansion - Mở rộng dựa trên ngữ cảnh CLB ProPTIT
-    5. Multi-Perspective Query - Tạo các góc nhìn khác nhau cho cùng một câu hỏi
     """
     
     def __init__(self):
@@ -111,49 +109,11 @@ class QueryExpansion:
         )
     
     def combined_llm_expansion(self, query: str) -> List[str]:
-        system_prompt = """Tạo các biến thể câu hỏi cho CLB ProPTIT. Trả về format JSON:
-{"rewrites": [...], "decomposed": [...], "context_aware": [...]}
-
-Yêu cầu:
-- rewrites: 2 cách viết lại khác nhau
-- decomposed: Chia thành câu hỏi con (nếu phức tạp)  
-- context_aware: 2 câu hỏi với ngữ cảnh CLB ProPTIT cụ thể
-
-Ngữ cảnh CLB ProPTIT:
-- Thành lập 9/10/2011, phương châm "Chia sẻ để cùng phát triển"
-- 6 team: AI, Mobile, Data, Game, Web, Backend
-- Quy trình: 3 vòng (CV, PV, Training), chỉ tuyển năm 1
-- Sự kiện: BigGame, SPOJ, PROCWAR, Code Battle
-- Lộ trình: C → C++ → CTDL&GT → OOP → Java"""
+        # Simplified prompt để giảm complexity và tăng success rate
+        system_prompt = """Tạo 2 cách hỏi khác nhau cho câu hỏi về CLB ProPTIT. 
+Trả về format: ["cách hỏi 1", "cách hỏi 2"]
+Chỉ thay đổi cách diễn đạt, giữ nguyên ý nghĩa."""
         
-        user_prompt = f"Câu hỏi: {query}"
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = self._get_llm_response(messages)
-        
-        try:
-            import json
-            # Tìm JSON trong response
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                expanded = [query]
-                expanded.extend(result.get("rewrites", []))
-                expanded.extend(result.get("decomposed", []))
-                expanded.extend(result.get("context_aware", []))
-                return expanded
-        except:
-            pass
-        
-        # Fallback 
-        return self.query_rewriting(query)
-    
-    def query_rewriting(self, query: str, num_variants: int = 2) -> List[str]:  
-        system_prompt = """Viết lại câu hỏi CLB ProPTIT thành 2 cách khác. Format: ["cách 1", "cách 2"]"""
         user_prompt = f"Câu hỏi: {query}"
         
         messages = [
@@ -165,59 +125,45 @@ Ngữ cảnh CLB ProPTIT:
         
         try:
             import ast
+            # Tìm list trong response
             list_match = re.search(r'\[.*?\]', response, re.DOTALL)
             if list_match:
                 variants = ast.literal_eval(list_match.group())
-                return [query] + variants[:num_variants]
-            else:
-                lines = [line.strip().strip('"\'') for line in response.split('\n') if line.strip()]
-                return [query] + lines[:num_variants]
-        except:
-            return [query, query.replace("CLB", "Câu lạc bộ"), query.replace("ProPTIT", "Lập trình PTIT")]
-    
-    def query_decomposition(self, query: str) -> List[str]:
-        # Chia nhỏ câu hỏi phức tạp
-        if ' và ' in query:
-            parts = query.split(' và ')
-            if len(parts) == 2:
-                return [query] + [part.strip() + '?' for part in parts if part.strip()]
+                if isinstance(variants, list) and len(variants) >= 2:
+                    expanded = [query]
+                    expanded.extend(variants[:2])  # Chỉ lấy 2 variants
+                    return expanded
+        except Exception as e:
+            print(f"LLM expansion parsing error: {e}")
         
-        # LLM decomposition cho câu phức tạp
-        if len(query.split()) > 10:  # Chỉ dùng LLM cho câu dài
-            system_prompt = """Chia câu hỏi phức tạp thành câu con đơn giản. Format: ["câu 1", "câu 2"]"""
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Câu hỏi: {query}"}
-            ]
-            
-            response = self._get_llm_response(messages)
-            try:
-                import ast
-                list_match = re.search(r'\[.*?\]', response, re.DOTALL)
-                if list_match:
-                    sub_queries = ast.literal_eval(list_match.group())
-                    return [query] + sub_queries
-            except:
-                pass
-        
-        return [query]
+        # Fallback: rule-based simple rewrites
+        fallback_variants = [
+            query.replace("CLB", "Câu lạc bộ"),
+            query.replace("ProPTIT", "Lập trình PTIT"),
+        ]
+        return [query] + [v for v in fallback_variants if v != query][:2]
     
     def synonym_expansion(self, query: str) -> List[str]:
         expanded_queries = [query]
+        query_lower = query.lower()
         
-        # Thay thế từ đồng nghĩa
+        best_synonyms = []
+        
         for category, synonyms in self.proptit_keywords.items():
-            for synonym in synonyms[:3]: 
-                pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
-                if pattern.search(query):
-                    for alternative in synonyms[:2]:  
-                        if alternative.lower() != synonym.lower():
+            for synonym in synonyms:
+                if synonym.lower() in query_lower:
+                    for alternative in synonyms:
+                        if (alternative.lower() != synonym.lower() and 
+                            len(alternative) >= 3):  # Tránh từ quá ngắn
+                            pattern = re.compile(r'\b' + re.escape(synonym) + r'\b', flags=re.IGNORECASE)
                             new_query = pattern.sub(alternative, query)
                             if new_query != query and new_query not in expanded_queries:
-                                expanded_queries.append(new_query)
-                                if len(expanded_queries) >= 4:  
-                                    return expanded_queries
-                    break
+                                best_synonyms.append(new_query)
+                            break  # Chỉ lấy 1 alternative tốt nhất cho mỗi synonym
+                    break  # Chỉ xử lý 1 synonym per category
+        
+        # Chọn 1-2 synonym expansion tốt nhất
+        expanded_queries.extend(best_synonyms[:2])
         
         return expanded_queries
     
@@ -225,139 +171,100 @@ Ngữ cảnh CLB ProPTIT:
         expanded = [query]
         query_lower = query.lower()
         
-        # Phân tích ngữ cảnh câu hỏi dựa trên intent và keywords
+        # Intent-based query expansion với variants thực tế hơn
+        context_expansions = []
         
         # 1. Câu hỏi về thời gian thành lập, lịch sử
-        if any(word in query_lower for word in ["thành lập", "khi nào", "năm nào", "lịch sử"]):
-            expanded.extend([
-                "CLB ProPTIT được thành lập ngày 9/10/2011",
-                "Lịch sử hình thành CLB ProPTIT",
-                "Người sáng lập CLB ProPTIT"
-            ])
+        if any(word in query_lower for word in ["thành lập", "khi nào", "năm nào", "lịch sử", "thành lập", "bắt đầu"]):
+            context_expansions = [
+                query.replace("thành lập", "ra đời").replace("khi nào", "năm nào"),
+                query + " và phương châm hoạt động"
+            ]
         
-        # 2. Câu hỏi về số lượng thành viên
-        elif any(word in query_lower for word in ["bao nhiêu thành viên", "số lượng", "có bao nhiều"]):
-            expanded.extend([
-                "Quy mô thành viên CLB ProPTIT",
-                "CLB tuyển 25 thành viên mỗi năm",
-                "Tổng số thành viên hiện tại CLB"
-            ])
+        # 2. Câu hỏi về quy trình tham gia
+        elif any(word in query_lower for word in ["tham gia", "vào clb", "đăng ký", "gia nhập"]):
+            context_expansions = [
+                query.replace("tham gia", "gia nhập"),
+                query.replace("CLB", "câu lạc bộ lập trình ProPTIT")
+            ]
         
-        # 3. Câu hỏi về quy trình tham gia
-        elif any(word in query_lower for word in ["tham gia", "vào clb", "đăng ký"]):
-            expanded.extend([
-                "Quy trình 3 vòng tuyển thành viên ProPTIT",
-                "Điều kiện tham gia CLB ProPTIT",
-                "Cách đăng ký vào CLB ProPTIT"
-            ])
+        # 3. Câu hỏi về hoạt động, sự kiện  
+        elif any(word in query_lower for word in ["hoạt động", "sự kiện", "event", "tổ chức"]):
+            context_expansions = [
+                query.replace("hoạt động", "sự kiện"),
+                query + " hàng năm của CLB"
+            ]
         
-        # 4. Câu hỏi về hoạt động, sự kiện
-        elif any(word in query_lower for word in ["hoạt động", "sự kiện", "event"]):
-            expanded.extend([
-                "Các sự kiện nổi bật của CLB ProPTIT",
-                "BigGame và SPOJ Tournament ProPTIT",
-                "Lịch hoạt động hàng năm CLB"
-            ])
+        # 4. Câu hỏi về team, cơ cấu
+        elif any(word in query_lower for word in ["team", "nhóm", "phân chia", "cơ cấu"]):
+            context_expansions = [
+                query.replace("team", "nhóm dự án"),
+                query.replace("CLB ProPTIT", "câu lạc bộ")
+            ]
         
-        # 5. Câu hỏi về teams, cơ cấu tổ chức
-        elif any(word in query_lower for word in ["team", "nhóm", "phân chia"]) and "thành viên" not in query_lower:
-            # Tạo biến thể câu hỏi thay vì trả về đáp án
-            expanded.extend([
-                "CLB ProPTIT có bao nhiêu team dự án?",
-                "Danh sách các team dự án của CLB ProPTIT",
-                "Các team dự án trong CLB ProPTIT gồm những nào?"
-            ])
+        # 5. Câu hỏi về học tập, lộ trình
+        elif any(word in query_lower for word in ["học", "lộ trình", "training", "đào tạo", "chương trình"]):
+            context_expansions = [
+                query.replace("lộ trình", "chương trình đào tạo"),
+                query.replace("học", "training")
+            ]
         
-        # 6. Câu hỏi về học tập, lộ trình
-        elif any(word in query_lower for word in ["học", "lộ trình", "training", "đào tạo"]):
-            expanded.extend([
-                "Lộ trình học tập tại ProPTIT",
-                "Chương trình training C++ ProPTIT",
-                "CTDL&GT và OOP trong CLB"
-            ])
+        # 6. Câu hỏi chung hoặc không match pattern cụ thể
+        else:
+            # Generic expansions
+            if "CLB" in query:
+                context_expansions.append(query.replace("CLB", "Câu lạc bộ"))
+            if "ProPTIT" in query:
+                context_expansions.append(query.replace("ProPTIT", "Lập trình PTIT"))
         
-        # 7. Câu hỏi về lợi ích, giá trị
-        elif any(word in query_lower for word in ["lợi ích", "có gì", "tại sao", "giá trị"]):
-            expanded.extend([
-                "Lợi ích khi tham gia CLB ProPTIT",
-                "Kỹ năng đạt được từ CLB",
-                "0.1 điểm xét học bổng ProPTIT"
-            ])
+        # Lọc và chỉ lấy expansions khác với câu gốc
+        valid_expansions = [exp for exp in context_expansions if exp != query and exp.strip()]
+        expanded.extend(valid_expansions[:2])  # Chỉ lấy 2 expansions tốt nhất
         
-        return expanded[:4]  
+        return expanded
     
-    def document_structure_expansion(self, query: str) -> List[str]:
-        doc_keywords = {
-            "thành lập": ["Lịch sử CLB ProPTIT", "9/10/2011 ProPTIT"],
-            "phương châm": ["Chia sẻ để cùng phát triển", "Slogan ProPTIT"],
-            "team": ["6 team ProPTIT", "Team AI, Mobile, Data, Game, Web, Backend"],
-            "tuyển": ["3 vòng tuyển", "CV, Phỏng vấn, Training"],
-            "training": ["Lộ trình C → C++ → CTDL&GT", "OOP Java ProPTIT"],
-            "sự kiện": ["BigGame SPOJ PROCWAR", "Code Battle Game C++"]
-        }
-        
-        expanded = [query]
-        query_lower = query.lower()
-        
-        for keyword, expansions in doc_keywords.items():
-            if keyword in query_lower:
-                expanded.extend(expansions[:2])
-                break
-        
-        return expanded[:3]
-    
-    def expand_query(self, query: str, techniques: List[str] = None, max_expansions: int = 8) -> List[str]:
-        """
-        Optimized main expansion function - ưu tiên rule-based, giảm LLM calls
-        
-        Args:
-            query: Câu hỏi gốc
-            techniques: Danh sách kỹ thuật muốn sử dụng
-            max_expansions: Số lượng tối đa câu hỏi mở rộng (giảm từ 10 xuống 8)
-        
-        Returns:
-            List[str]: Danh sách câu hỏi đã mở rộng
-        """
+    def expand_query(self, query: str, techniques: List[str] = None, max_expansions: int = 5) -> List[str]:
         if techniques is None:
-            # Ưu tiên rule-based techniques trước
-            techniques = ["rule_based", "synonym", "context", "combined_llm"]
+            techniques = ["synonym", "context", "combined_llm"]
         
-        all_expanded = [query]
+        all_expanded = [query]  # Câu gốc luôn đứng đầu
         
         try:
-            # 2. Synonym expansion 
+            # 1. Rule-based synonym expansion (nhanh, không cần LLM)
             if "synonym" in techniques:
                 synonyms = self.synonym_expansion(query)
-                all_expanded.extend(synonyms[1:])
+                all_expanded.extend(synonyms[1:2])  # Chỉ lấy 1 synonym tốt nhất
             
-            # 3. Context-aware expansion
+            # 2. Context-aware expansion (template-based, không cần LLM)
             if "context" in techniques:
                 context_aware = self.context_aware_expansion(query)
-                all_expanded.extend(context_aware[1:])
+                all_expanded.extend(context_aware[1:3])  # Lấy 2 context variants
             
-            # 4. Combined LLM expansion 
+            # 3. LLM expansion (chỉ khi cần thiết và chưa đủ)
             if "combined_llm" in techniques and len(all_expanded) < max_expansions:
-                combined = self.combined_llm_expansion(query)
-                all_expanded.extend(combined[1:])
-            
-            # Legacy techniques
-            if "decomposition" in techniques:
-                decomposed = self.query_decomposition(query)
-                all_expanded.extend(decomposed[1:])
-            
-            if "document_structure" in techniques:
-                structure_aware = self.document_structure_expansion(query)
-                all_expanded.extend(structure_aware[1:])
+                remaining_slots = max_expansions - len(all_expanded)
+                if remaining_slots > 0:
+                    combined = self.combined_llm_expansion(query)
+                    all_expanded.extend(combined[1:remaining_slots + 1])
         
         except Exception as e:
             print(f"Error in query expansion: {e}")
+            # Fallback: chỉ trả về câu gốc nếu có lỗi
+            return [query]
         
         unique_expanded = []
         seen = set()
         for q in all_expanded:
-            if q.lower() not in seen:
+            q_norm = q.lower().strip()
+            if q_norm not in seen and q.strip():
                 unique_expanded.append(q)
-                seen.add(q.lower())
+                seen.add(q_norm)
+        
+        # Đảm bảo câu gốc luôn đầu tiên
+        if unique_expanded[0] != query:
+            if query in unique_expanded:
+                unique_expanded.remove(query)
+            unique_expanded.insert(0, query)
         
         return unique_expanded[:max_expansions]
     
