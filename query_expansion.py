@@ -3,7 +3,9 @@ import time
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 import os
-from groq import Groq
+
+# Import centralized LLM configuration  
+from llm_config import get_llm_response as get_llm_response_global, get_config_info
 
 load_dotenv()
 
@@ -19,9 +21,11 @@ class QueryExpansion:
     5. Multi-Perspective Query - Tạo các góc nhìn khác nhau cho cùng một câu hỏi
     """
     
-    def __init__(self, model_name="meta-llama/llama-4-maverick-17b-128e-instruct"):
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        self.model_name = model_name
+    def __init__(self):
+        # Use centralized LLM configuration
+        config_info = get_config_info()
+        print(f"🤖 QueryExpansion using {config_info['provider'].upper()} - {config_info['model']}")
+        self.llm_available = config_info['client_initialized']
         
         # Domain-specific keywords cho CLB ProPTIT - được trích xuất từ dữ liệu thực tế
         self.proptit_keywords = {
@@ -94,26 +98,17 @@ class QueryExpansion:
         }
     
     def _get_llm_response(self, messages: List[Dict], max_retries: int = 3) -> str:
-        """Helper function để gọi LLM với retry logic"""
-        backoff = 1
-        for attempt in range(1, max_retries + 1):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=0.4,  
-                    max_completion_tokens=256,  
-                    top_p=0.8, 
-                    stream=False,
-                    stop=None
-                )
-                return response.choices[0].message.content.strip()
-            except Exception as e:
-                print(f"Error calling LLM (attempt {attempt}/{max_retries}): {e}")
-                if attempt < max_retries:
-                    time.sleep(backoff)
-                    backoff *= 2
-        return ""
+        """Helper function để gọi LLM với retry logic sử dụng cấu hình chung"""
+        if not self.llm_available:
+            print("⚠️  LLM not available, returning empty response")
+            return ""
+            
+        return get_llm_response_global(
+            messages=messages,
+            temperature=0.4,
+            max_tokens=256,
+            max_retries=max_retries
+        )
     
     def combined_llm_expansion(self, query: str) -> List[str]:
         system_prompt = """Tạo các biến thể câu hỏi cho CLB ProPTIT. Trả về format JSON:

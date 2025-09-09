@@ -81,64 +81,13 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
 
 load_dotenv()
 
-LLM_PROVIDER = "nvidia" # "groq" or "nvidia"
+from llm_config import get_llm_response, get_config_info
 
-from groq import Groq
-
-# client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-# GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
-
-NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "writer/palmyra-med-70b")
-NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
-
-# 🔧 HELPER FUNCTION: Wrapper để hỗ trợ cả OpenAI và Gemini, có thể thay đổi temperature, max_tokens
-def get_llm_response(messages):
-    max_retries = 3
-    backoff = 1
-    for attempt in range(1, max_retries + 1):
-        try:
-            if LLM_PROVIDER == "nvidia" and NVIDIA_API_KEY:
-                headers = {
-                    "Authorization": f"Bearer {NVIDIA_API_KEY}",
-                    "accept": "application/json",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": NVIDIA_MODEL,
-                    "messages": messages,
-                    "max_tokens": 300,
-                    "stream": False,
-                    "temperature": 0.0,
-                    "top_p": 1,
-                    "frequency_penalty": 0,
-                    "presence_penalty": 0
-                }
-                resp = requests.post(NVIDIA_ENDPOINT, headers=headers, json=payload)
-                try:
-                    resp.raise_for_status()
-                except requests.HTTPError as http_err:
-                    print(f"HTTPError calling NVIDIA API: {http_err}, Response body: {resp.text}")
-                    raise
-                data = resp.json()
-                return data["choices"][0]["message"]["content"]
-            else:
-                response = client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    messages=messages,
-                    temperature=0.0,
-                    max_completion_tokens=848,
-                    top_p=1,
-                    stream=False,
-                    stop=None
-                )
-                return response.choices[0].message.content
-        except Exception as e:
-            print(f"Error calling LLM (attempt {attempt}/{max_retries}): {e}")
-            if attempt < max_retries:
-                time.sleep(backoff)
-                backoff *= 2
-    return ""
+print("🤖 LLM Configuration:")
+config_info = get_config_info()
+print(f"   Provider: {config_info['provider']}")
+print(f"   Model: {config_info['model']} - {config_info['api_key_available']}")
+print()
 
 # Nên chạy từng hàm từ đoạn này để test
 

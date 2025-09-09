@@ -96,9 +96,9 @@ Hệ thống NeoRAG được thiết kế với kiến trúc RAG tiên tiến, t
 | **String Presence@k** | 0.47 | 0.50 | 0.48 | 0.35 | 0.40 | 0.41 |
 | **ROUGE-L@k** | 0.22 | 0.21 | 0.21 | 0.21 | 0.23 | 0.22 |
 | **BLEU-4@k** | 0.04 | 0.03 | 0.03 | 0.03 | 0.03 | 0.04 |
-| **Groundedness@k** | 0.57 | 0.61 | 0.64 | 0.57 | 0.61 | 0.64 |
+| **Groundedness@k** | 0.69 | 0.75 | 0.78 | 0.57 | 0.61 | 0.64 |
 | **Response Relevancy@k** | 0.85 | 0.85 | 0.85 | 0.80 | 0.80 | 0.80 |
-| **Noise Sensitivity@k** | 0.51 | 0.53 | 0.51 | 0.51 | 0.53 | 0.51 |
+| **Noise Sensitivity@k** | 0.00 | 0.00 | 0.00 | 0.51 | 0.53 | 0.51 |
 
 ### 🎯 Retrieval Metrics - Test Data (30 queries)
 
