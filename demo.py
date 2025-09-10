@@ -458,24 +458,24 @@ with tab3:
         'k': [3, 5, 7],
         'hit@k': [0.59, 0.72, 0.76],
         'recall@k': [0.41, 0.49, 0.54],
-        'precision@k': [0.21, 0.16, 0.13],
+        'precision@k': [0.22, 0.16, 0.13],
         'f1@k': [0.28, 0.25, 0.21],
         'map@k': [0.52, 0.55, 0.54],
         'mrr@k': [0.52, 0.55, 0.56],
         'ndcg@k': [0.54, 0.59, 0.6],
-        'context_precision@k': [0.78, 0.66, 0.57],
-        'context_recall@k': [0.54, 0.45, 0.42],
-        'context_entities_recall@k': [0.47, 0.45, 0.47]
+        'context_precision@k': [0.90, 0.70, 0.57],
+        'context_recall@k': [0.70, 0.56, 0.55],
+        'context_entities_recall@k': [0.74, 0.78, 0.82]
     }
     
     llm_train = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.47, 0.50, 0.48],
-        'rouge_l@k': [0.22, 0.21, 0.21],
-        'bleu_4@k': [0.04, 0.03, 0.03],
-        'groundedness@k': [0.69, 0.75, 0.78],
-        'response_relevancy@k': [0.85, 0.85, 0.85],
-        'noise_sensitivity@k': [0.00, 0.00, 0.00]
+        'string_presence@k': [0.52, 0.58, 0.60],
+        'rouge_l@k': [0.18, 0.19, 0.2],
+        'bleu_4@k': [0.03, 0.04, 0.04],
+        'groundedness@k': [0.88, 0.91, 0.94],
+        'response_relevancy@k': [0.84, 0.85, 0.85],
+        'noise_sensitivity@k': [0.03, 0.03, 0.02]
     }
     
     col1, col2 = st.columns(2)
@@ -519,25 +519,25 @@ with tab3:
     retrieval_test = {
         'k': [3, 5, 7],
         'hit@k': [0.93, 0.93, 0.97],
-        'recall@k': [0.73, 0.76, 0.82],
+        'recall@k': [0.75, 0.78, 0.82],
         'precision@k': [0.47, 0.3, 0.24],
         'f1@k': [0.57, 0.43, 0.37],
         'map@k': [0.86, 0.84, 0.85],
         'mrr@k': [0.87, 0.87, 0.89],
         'ndcg@k': [0.88, 0.87, 0.89],
-        'context_precision@k': [0.88, 0.74, 0.57],
-        'context_recall@k': [0.66, 0.53, 0.45],
-        'context_entities_recall@k': [0.61, 0.62, 0.67]
+        'context_precision@k': [0.97, 0.71, 0.71],
+        'context_recall@k': [0.9, 0.73, 0.74],
+        'context_entities_recall@k': [0.91, 0.93, 0.95]
     }
 
     llm_test = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.53, 0.58, 0.57],
-        'rouge_l@k': [0.42, 0.43, 0.4],
-        'bleu_4@k': [0.16, 0.18, 0.2],
-        'groundedness@k': [0.91, 0.87, 0.9],
-        'response_relevancy@k': [0.86, 0.86, 0.86],
-        'noise_sensitivity@k': [0.00, 0.00, 0.00]
+        'string_presence@k': [0.78, 0.78, 0.79],
+        'rouge_l@k': [0.50, 0.55, 0.53],
+        'bleu_4@k': [0.26, 0.25, 0.31],
+        'groundedness@k': [0.98, 1.00, 0.99],
+        'response_relevancy@k': [0.85, 0.86, 0.86],
+        'noise_sensitivity@k': [0.07, 0.03, 0.06]
     }
 
     col1, col2 = st.columns(2)

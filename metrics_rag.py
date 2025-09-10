@@ -8,6 +8,22 @@ import time
 from google import genai
 from rerank import Reranker
 from query_expansion import QueryExpansion
+import torch
+
+# Common system prompt for RAG-based ProPTIT context QA
+COMMON_RAG_SYSTEM_PROMPT = """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
+Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+
+Nguyên tắc trả lời NGHIÊM NGẶT:
+1. TUYỆT ĐỐI CHỈ sử dụng thông tin từ context được cung cấp để trả lời. KHÔNG ĐƯỢC thêm bất kỳ thông tin nào ngoài context.
+2. Nếu context không chứa thông tin để trả lời câu hỏi, hãy nói: "Thông tin này không có trong tài liệu được cung cấp."
+3. Mỗi câu trả lời phải có thể truy vết trực tiếp đến thông tin trong context.
+4. KHÔNG suy đoán, KHÔNG bịa đặt, KHÔNG sử dụng kiến thức chung.
+5. Trình bày câu trả lời ngắn gọn, chính xác dựa trên context.
+6. Tập trung trả lời đúng câu hỏi được đặt ra.
+
+Nhiệm vụ của bạn:
+- Trả lời các câu hỏi về CLB Lập trình ProPTIT CHÍNH XÁC dựa trên context được cung cấp."""
 
 # Helper to retrieve and optionally rerank results with query expansion
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
@@ -347,18 +363,7 @@ def context_precision_k(file_clb_proptit, file_train, embedding, vector_db, rera
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         hits = 0
@@ -391,7 +396,7 @@ Nhiệm vụ của bạn:
         user_content = f"Câu hỏi: {query}\nCâu trả lời: {reply}\n\nNgữ cảnh:\n"
         for idx, res in enumerate(context_sections, 1):
             user_content += f"{idx}. {res['information']}\n"
-            print(f"Context {idx}: {res['information'][:50]}...")
+            # print(f"Context {idx}: {res['information'][:50]}...")
         user_content += f"\nHãy đánh giá mức độ liên quan cho mỗi ngữ cảnh, trả lời chuỗi gồm {k} ký tự 1 hoặc 0 theo thứ tự trên, không giải thích."
         messages_judged = [system_judge, {"role": "user", "content": user_content}]
         judged_reply = get_llm_response(messages_judged)
@@ -449,7 +454,7 @@ def context_recall_k(file_clb_proptit, file_train, embedding, vector_db, reranke
         user_content = f"Câu hỏi: {query}\nCâu trả lời chính xác: {reply}\n\nNgữ cảnh:\n"
         for idx, res in enumerate(results, 1):
             user_content += f"{idx}. {res['information']}\n"
-            print(f"Context {idx}: {res['information'][:50]}...")
+            # print(f"Context {idx}: {res['information'][:50]}...")
 
         messages_judged = [system_judge, {"role": "user", "content": user_content}]
         judged_reply = get_llm_response(messages_judged)
@@ -606,19 +611,7 @@ def string_presence_k(file_clb_proptit, file_train, embedding, vector_db, k=5, r
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -666,7 +659,12 @@ Output: ["CLB", "200 thành viên", "Học viện PTIT"]"""
             entity_clean = entity.strip()
             if entity_clean.lower() in response.lower() or any(word in response.lower() for word in entity_clean.lower().split()):
                 hits += 1
-        hits /= len(entities) if len(entities) > 0 else 0
+        
+        if len(entities) > 0:
+            hits /= len(entities)
+        else:
+            hits = 0
+        
         print(f"Query {index+1}/{len(df_train)} - Entities found: {hits * len(entities) if len(entities) > 0 else 0} / {len(entities)} - Presence: {hits:.3f}")
         total_presence += hits
     return total_presence / len(df_train) if len(df_train) > 0 else 0
@@ -692,19 +690,7 @@ def rouge_l_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -744,19 +730,7 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=N
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -794,19 +768,7 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5, rera
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -906,19 +868,7 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context = "Content từ các tài liệu liên quan:\n"
@@ -971,19 +921,7 @@ def noise_sensitivity_k(file_clb_proptit, file_train, embedding, vector_db, k=5,
         messages = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
-
-Nguyên tắc trả lời:
-1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
-3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-4. Tuyệt đối không suy đoán hoặc bịa thông tin.
-5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
-
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
+                "content": COMMON_RAG_SYSTEM_PROMPT
             }
         ]
         context =  "Content từ các tài liệu liên quan:\n"
@@ -997,30 +935,26 @@ Nhiệm vụ của bạn:
         # Gọi  API để lấy câu trả lời
         response = get_llm_response(messages)
 
-        sentences = response.split('. ')
+        sentences = re.split(r'(?<=[.!?])\s+', response.strip())
+        sentences = [s for s in sentences if len(s.strip()) > 5]
         for sentence in sentences:
             # Sửa prompt nếu muốn
             messages_sensitivity = [
                 {
                     "role": "system",
-                    "content": """Bạn là một chuyên gia đánh giá độ nhạy cảm của câu trả lời trong hệ thống RAG, có nhiệm vụ phân loại từng câu của câu trả lời dựa trên ngữ cảnh đã cho.
-                    Bạn sẽ được cung cấp một ngữ cảnh, một câu hỏi và một câu trong phần trả lời từ mô hình AI. Nhiệm vụ của bạn là đánh giá câu trả lời đó dựa trên ngữ cảnh và câu hỏi.
-                    Input:
-                    Question: Câu hỏi của người dùng
-                    Contexts: Một hoặc nhiều đoạn văn bản được truy xuất
-                    Answer: Chỉ một câu trong đoạn văn bản LLM sinh ra
-                    Bạn hãy đánh giá dựa trên các nhãn sau: 
-                    1: Nội dung câu được ngữ cảnh hỗ trợ hoặc suy ra trực tiếp.
-                    0: Nội dung câu không được ngữ cảnh hỗ trợ, và không thể suy ra từ đó.
-                    Ví dụ:
-                    Question: Bạn có thể cho tôi biết về lịch sử của Câu lạc bộ Lập trình ProPTIT không?
-                    Contexts: Câu lạc bộ Lập trình ProPTIT được ra đời vào năm 2011, với mục tiêu tạo ra một môi trường học tập và giao lưu cho các sinh viên đam mê lập trình.
-                    Answer: Câu lạc bộ Lập trình ProPTIT được thành lập vào năm 2011.
-                    1
-                    Question: Câu lạc bộ Lập trình ProPTIT được thành lập vào năm 2011. Bạn có biết ngày cụ thể không?
-                    Contexts: Câu lạc bộ Lập trình ProPTIT được ra đời vào năm 2011, với mục tiêu tạo ra một môi trường học tập và giao lưu cho các sinh viên đam mê lập trình.
-                    Answer: Câu lạc bộ Lập trình ProPTIT là CLB thuộc PTIT.
-                    0"""
+                    "content": """Bạn là một chuyên gia đánh giá độ nhạy cảm của câu trả lời trong hệ thống RAG. Nhiệm vụ: đánh giá từng câu của response có được hỗ trợ bởi context hay không.
+
+Quy tắc đánh giá NGHIÊM NGẶT:
+- 1: Câu có thể truy vết trực tiếp từ context (từ, cụm từ, ý nghĩa xuất hiện trong context)
+- 0: Câu KHÔNG có trong context hoặc không thể suy ra từ context
+
+Lưu ý đặc biệt:
+- Câu chào hỏi lịch sự, câu cảm thán đơn giản -> 1
+- Câu "Thông tin này không có trong tài liệu được cung cấp." -> 1 
+- Bất kỳ thông tin cụ thể nào không xuất hiện trong context -> 0
+- Suy luận quá xa so với context -> 0
+
+Chỉ trả lời: 1 hoặc 0"""
                 }
             ]
             # Sửa prompt nếu muốn

@@ -22,7 +22,7 @@ class QueryExpansion:
     def __init__(self):
         # Use centralized LLM configuration
         config_info = get_config_info()
-        print(f"🤖 QueryExpansion using {config_info['provider'].upper()} - {config_info['model']}")
+        # print(f"🤖 QueryExpansion using {config_info['provider'].upper()} - {config_info['model']}")
         self.llm_available = config_info['client_initialized']
         
         # Domain-specific keywords cho CLB ProPTIT - được trích xuất từ dữ liệu thực tế
