@@ -73,7 +73,7 @@ from llm_config import get_llm_response, get_config_info
 print("🤖 LLM Configuration:")
 config_info = get_config_info()
 print(f"   Provider: {config_info['provider']}")
-print(f"   Model: {config_info['model']} - {config_info['api_key_available']}")
+print(f"   Model: {config_info['model']}")
 print()
 
 # Nên chạy từng hàm từ đoạn này để test
@@ -493,13 +493,16 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
         # NOTE: Các em có thể thay đổi messages_entities nếu muốn
         messages_entities = [
             {
-                "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên trích xuất các thực thể từ câu trả lời. Bạn sẽ được cung cấp một câu trả lời và nhiệm vụ của bạn là trích xuất các thực thể từ câu trả lời đó. Các thực thể có thể là tên người, địa điểm, tổ chức, sự kiện, v.v. Hãy trả lời dưới dạng một danh sách các thực thể.
-                Ví dụ:
-                Câu trả lời: Nếu bạn thuộc ngành khác bạn vẫn có thể tham gia CLB chúng mình. Nếu định hướng của bạn hoàn toàn là theo CNTT thì CLB chắc chắn là nơi phù hợp nhất để các bạn phát triển. Trở ngại lớn nhất sẽ là do bạn theo một hướng khác nữa nên sẽ phải tập trung vào cả 2 mảng nên sẽ cần cố gắng nhiều hơn.
-                ["ngành khác", "CLB", "CNTT", "mảng]
-                Câu trả lời: Câu lạc bộ Lập Trình PTIT (Programming PTIT), tên viết tắt là PROPTIT được thành lập ngày 9/10/2011. Với phương châm hoạt động "Chia sẻ để cùng nhau phát triển", câu lạc bộ là nơi giao lưu, đào tạo các môn lập trình và các môn học trong trường, tạo điều kiện để sinh viên trong Học viện có môi trường học tập năng động sáng tạo. Slogan: Lập Trình PTIT - Lập trình từ trái tim.
-                ["Câu lạc bộ Lập Trình PTIT (Programming PTIT)", "PROPTIT", "9/10/2011", "Chia sẻ để cùng nhau phát triển", "sinh viên", "Học viện", "Lập Trình PTIT - Lập trình từ trái tim"]"""
+                "role": "system", 
+                "content": """Trích xuất tất cả thực thể quan trọng từ câu trả lời. Thực thể bao gồm: tên tổ chức, tên người, ngày tháng, địa điểm, khái niệm, thuật ngữ, số liệu.
+CHỈ TRA VỀ danh sách Python hợp lệ, KHÔNG giải thích gì thêm.
+
+Ví dụ:
+Input: Câu lạc bộ Lập Trình PTIT được thành lập ngày 9/10/2011 với slogan "Lập trình từ trái tim".
+Output: ["Câu lạc bộ Lập Trình PTIT", "PTIT", "9/10/2011", "Lập trình từ trái tim"]
+
+Input: CLB có 200 thành viên đang học tại Học viện PTIT.
+Output: ["CLB", "200 thành viên", "Học viện PTIT"]"""
             }
         ]
         # NOTE: Các em có thể thay đổi content nếu muốn
@@ -526,8 +529,9 @@ def context_entities_recall_k(file_clb_proptit, file_train, embedding, vector_db
         tmp = len(entities)
         for result in results:
             context = result['information']
-            for entity in entities:
-                if entity.strip() in context:
+            for entity in entities[:]:  
+                entity_clean = entity.strip()
+                if entity_clean.lower() in context.lower() or any(word in context.lower() for word in entity_clean.lower().split()):
                     hits += 1
                     entities.remove(entity.strip())
         total_recall += hits / tmp if tmp > 0 else 0
@@ -607,10 +611,11 @@ Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ th
 
 Nguyên tắc trả lời:
 1. Chỉ sử dụng thông tin từ context được cung cấp để trả lời. Context sẽ được cung cấp ở đầu mỗi query của người dùng. Câu hỏi của người dùng nằm ở cuối. 
-2. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
-3. Tuyệt đối không suy đoán hoặc bịa thông tin.
-4. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
-5. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
+2. Nếu người dùng hỏi câu hỏi không liên quan đến CLB ProPTIT, hãy trả lời như bình thường, nhưng không sử dụng thông tin từ context
+3. Trình bày câu trả lời rõ ràng, dễ hiểu. Có thể sử dụng emoij icon khi cần.
+4. Tuyệt đối không suy đoán hoặc bịa thông tin.
+5. Giữ phong cách trả lời thân thiện, chuyên nghiệp và nhất quán.
+6. Trong context có thể chứa nhiều thông tin khác nhau, hãy tập trung vào câu hỏi của người dùng để trả lời chính xác nhất.
 
 Nhiệm vụ của bạn:
 - Trả lời các câu hỏi về CLB Lập trình ProPTIT: lịch sử, thành viên, hoạt động, sự kiện, dự án, nội quy, thành viên tiêu biểu, và các thông tin liên quan khác."""
@@ -630,12 +635,15 @@ Nhiệm vụ của bạn:
         messages_entities = [
             {
                 "role": "system",
-                "content": """Bạn là một trợ lý AI chuyên trích xuất các thực thể từ câu trả lời. Bạn sẽ được cung cấp một câu trả lời và nhiệm vụ của bạn là trích xuất các thực thể từ câu trả lời đó. Các thực thể có thể là tên người, địa điểm, tổ chức, sự kiện, v.v. Hãy trả lời dưới dạng một danh sách các thực thể.
-                Ví dụ:
-                Câu trả lời: Nếu bạn thuộc ngành khác bạn vẫn có thể tham gia CLB chúng mình. Nếu định hướng của bạn hoàn toàn là theo CNTT thì CLB chắc chắn là nơi phù hợp nhất để các bạn phát triển. Trở ngại lớn nhất sẽ là do bạn theo một hướng khác nữa nên sẽ phải tập trung vào cả 2 mảng nên sẽ cần cố gắng nhiều hơn.
-                ["ngành khác", "CLB", "CNTT", "mảng]
-                Câu trả lời: Câu lạc bộ Lập Trình PTIT (Programming PTIT), tên viết tắt là PROPTIT được thành lập ngày 9/10/2011. Với phương châm hoạt động "Chia sẻ để cùng nhau phát triển", câu lạc bộ là nơi giao lưu, đào tạo các môn lập trình và các môn học trong trường, tạo điều kiện để sinh viên trong Học viện có môi trường học tập năng động sáng tạo. Slogan: Lập Trình PTIT - Lập trình từ trái tim.
-                ["Câu lạc bộ Lập Trình PTIT (Programming PTIT)", "PROPTIT", "9/10/2011", "Chia sẻ để cùng nhau phát triển", "sinh viên", "Học viện", "Lập Trình PTIT - Lập trình từ trái tim"]"""
+                "content": """Trích xuất tất cả thực thể quan trọng từ câu trả lời. Thực thể bao gồm: tên tổ chức, tên người, ngày tháng, địa điểm, khái niệm, thuật ngữ, số liệu. 
+CHỈ TRA VỀ danh sách Python hợp lệ, KHÔNG giải thích gì thêm.
+
+Ví dụ:
+Input: Câu lạc bộ Lập Trình PTIT được thành lập ngày 9/10/2011 với slogan "Lập trình từ trái tim".
+Output: ["Câu lạc bộ Lập Trình PTIT", "PTIT", "9/10/2011", "Lập trình từ trái tim"]
+
+Input: CLB có 200 thành viên đang học tại Học viện PTIT.  
+Output: ["CLB", "200 thành viên", "Học viện PTIT"]"""
             }
         ]
         # Thay đổi content nếu muốn
@@ -655,7 +663,8 @@ Nhiệm vụ của bạn:
         else:
             entities = []
         for entity in entities:
-            if entity.strip() in response:
+            entity_clean = entity.strip()
+            if entity_clean.lower() in response.lower() or any(word in response.lower() for word in entity_clean.lower().split()):
                 hits += 1
         hits /= len(entities) if len(entities) > 0 else 0
         print(f"Query {index+1}/{len(df_train)} - Entities found: {hits * len(entities) if len(entities) > 0 else 0} / {len(entities)} - Presence: {hits:.3f}")
@@ -764,7 +773,7 @@ Nhiệm vụ của bạn:
         candidate = response.split()
         bleu_4 = sentence_bleu([reference], candidate, smoothing_function=smoothing_function)
         total_bleu_4 += bleu_4
-        print(bleu_4)
+        print(f"Query {index+1}/{len(df_train)} - BLEU-4: {bleu_4:.3f}")
     return total_bleu_4 / len(df_train) if len(df_train) > 0 else 0
 
 # Hàm Groundedness (LLM Answer - Hallucination Detection)\

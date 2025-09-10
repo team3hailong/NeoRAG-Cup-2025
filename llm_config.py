@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia") # "nvidia" or "groq"
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "writer/palmyra-med-70b")  
