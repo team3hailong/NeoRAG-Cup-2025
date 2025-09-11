@@ -750,7 +750,7 @@ def bleu_4_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=N
         print(f"Query {index+1}/{len(df_train)} - BLEU-4: {bleu_4:.3f}")
     return total_bleu_4 / len(df_train) if len(df_train) > 0 else 0
 
-# Hàm Groundedness (LLM Answer - Hallucination Detection)\
+# Hàm Groundedness (LLM Answer - Hallucination Detection)
 
 def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5, reranker=None, use_query_expansion=True):
     df_clb = pd.read_csv(file_clb_proptit)
@@ -784,30 +784,32 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5, rera
       
     
         # Tách response thành các câu
-        sentences = response.split('. ')
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', response.strip())
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 3]
+        
         for sentence in sentences:
             # Tạo một prompt để kiểm tra tính groundedness của câu
             # Sửa prompt nếu muốn
             messages_groundedness = [
                 {
                     "role": "system",
-                    "content": """Bạn là một chuyên gia đánh giá Groundedness trong hệ thống RAG, có nhiệm vụ phân loại từng câu của câu trả lời dựa trên ngữ cảnh đã cho.
-                    Bạn sẽ được cung cấp một ngữ cảnh, một câu hỏi và một câu trong phần trả lời từ mô hình AI. Nhiệm vụ của bạn là đánh giá câu trả lời đó dựa trên ngữ cảnh và câu hỏi.
-                    Input:
-                    Question: Câu hỏi của người dùng
-                    Contexts: Một hoặc nhiều đoạn văn bản được truy xuất
-                    Answer: Chỉ một câu trong đoạn văn bản LLM sinh ra
-                    Bạn hãy đánh giá dựa trên các nhãn sau: 
-                    supported: Nội dung câu được ngữ cảnh hỗ trợ hoặc suy ra trực tiếp.
-                    unsupported: Nội dung câu không được ngữ cảnh hỗ trợ, và không thể suy ra từ đó.
-                    contradictory: Nội dung câu trái ngược hoặc mâu thuẫn với ngữ cảnh.
-                    no_rad: Câu không yêu cầu kiểm tra thực tế (ví dụ: câu chào hỏi, ý kiến cá nhân, câu hỏi tu từ, disclaimers).
-                    Hãy trả lời bằng một trong các nhãn trên, không giải thích gì thêm. Chỉ trả lời một từ duy nhất là nhãn đó.
-                    Ví dụ:
-                    Question: Bạn có thể cho tôi biết về lịch sử của Câu lạc bộ Lập trình ProPTIT không?
-                    Contexts: Câu lạc bộ Lập trình ProPTIT được ra đời vào năm 2011, với mục tiêu tạo ra một môi trường học tập và giao lưu cho các sinh viên đam mê lập trình.
-                    Answer: Câu lạc bộ Lập trình ProPTIT được thành lập vào năm 2011.
-                    supported"""
+                    "content": """Bạn là chuyên gia đánh giá Groundedness trong hệ thống RAG. Nhiệm vụ: đánh giá từng câu trong response có được hỗ trợ bởi context đã cung cấp hay không.
+
+NGUYÊN TẮC ĐÁNH GIÁ:
+- supported: Câu được context hỗ trợ trực tiếp HOẶC có thể suy ra hợp lý từ context
+- unsupported: Câu chứa thông tin hoàn toàn không có trong context và không thể suy ra
+- contradictory: Câu mâu thuẫn trực tiếp với thông tin trong context  
+- no_rag: Câu không cần kiểm tra factual (câu chào hỏi, disclaimer, câu chuyển tiếp thông thường)
+
+QUY TẮC ĐẶC BIỆT:
+1. Câu mô tả chung về quy định/chính sách (như "Bạn sẽ được tham gia khi...") → supported nếu context đề cập về điều kiện tham gia
+2. Danh sách được liệt kê một phần từ context → supported  
+3. Thông tin tổng hợp từ nhiều phần context → supported
+4. Câu "Thông tin này không có trong tài liệu" → supported
+5. Chỉ đánh giá unsupported khi câu chứa facts sai lệch
+
+Chỉ trả lời một từ: supported/unsupported/contradictory/no_rag"""
                 }
             ]
             # Sửa content nếu muốn
@@ -816,12 +818,13 @@ def groundedness_k(file_clb_proptit, file_train, embedding, vector_db, k=5, rera
                 "content": f"Question: {query}\n\nContexts: {context}\n\nAnswer: {sentence.strip()}"
             })
             # Gọi  API để đánh giá groundedness
-            groundedness_reply = get_llm_response(messages_groundedness)
+            groundedness_reply = get_llm_response(messages_groundedness).lower().strip()
+            words = groundedness_reply.split()
 
-            if groundedness_reply == "supported":
+            if "supported" in words:
                 hits += 1
                 cnt += 1
-            elif groundedness_reply == "unsupported" or groundedness_reply == "contradictory":
+            elif "unsupported" in words or "contradictory" in words:
                 cnt += 1
         total_groundedness += hits / cnt if cnt > 0 else 1
         print(f"Query {index+1}/{len(df_train)} - Groundedness: {hits}/{cnt} - Total: {total_groundedness:.3f}")

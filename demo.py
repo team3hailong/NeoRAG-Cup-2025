@@ -534,9 +534,9 @@ with tab3:
         'k': [3, 5, 7],
         'string_presence@k': [0.78, 0.78, 0.79],
         'rouge_l@k': [0.50, 0.55, 0.53],
-        'bleu_4@k': [0.26, 0.25, 0.31],
-        'groundedness@k': [0.98, 1.00, 0.99],
-        'response_relevancy@k': [0.85, 0.86, 0.86],
+        'bleu_4@k': [0.26, 0.34, 0.29],
+        'groundedness@k': [0.99, 0.96, 0.99],
+        'response_relevancy@k': [0.86, 0.86, 0.85],
         'noise_sensitivity@k': [0.07, 0.03, 0.06]
     }
 

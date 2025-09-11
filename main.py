@@ -50,5 +50,4 @@ from metrics_rag import groundedness_k, response_relevancy_k, hit_k, bleu_4_k, c
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("bleu_4_k@5:", bleu_4_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
-print("bleu_4_k@5:", bleu_4_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=7, reranker=reranker, use_query_expansion=use_query_expansion))
+print("context_precision_k@7:", context_precision_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=7, reranker=reranker, use_query_expansion=use_query_expansion))
