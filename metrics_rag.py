@@ -30,7 +30,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
     if not use_query_expansion:
         user_embedding = embedding.encode(query)
         initial_limit = k * 2 if reranker else k
-        all_results = vector_db.query("information", user_embedding, limit=initial_limit)
+        all_results = vector_db.query("information", user_embedding, limit=initial_limit, embedding_model=embedding)
     else:
         query_expander = QueryExpansion()
         
@@ -52,7 +52,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
                 retrieval_limit = max(2, k // 2)  
             
             user_embedding = embedding.encode(exp_query)
-            results = vector_db.query("information", user_embedding, limit=retrieval_limit * 2)
+            results = vector_db.query("information", user_embedding, limit=retrieval_limit * 2, embedding_model=embedding)
             
             for j, result in enumerate(results):
                 doc_id = result.get('title', str(hash(result['information'])))

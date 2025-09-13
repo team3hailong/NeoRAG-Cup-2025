@@ -22,11 +22,21 @@ use_query_expansion = True
 # TODO: Embedding từng document trong file CLB_PROPTIT.docx và lưu vào DB. 
 # Code dưới là sử dụng mongodb, các em có thể tự sửa lại cho phù hợp với DB mà mình đang dùng
 #--------------------Code Lưu Embedding Document vào DB--------------------------
+
+# Clear existing collection to rebuild with ColBERT embeddings
+try:
+    vector_db.drop_collection("information")
+    print("Dropped existing collection to rebuild with ColBERT embeddings")
+except:
+    print("Collection doesn't exist or already empty")
+
 cnt = 1
 if vector_db.count_documents("information") == 0:
+    print("Building database with ColBERT embeddings...")
     for para in doc.paragraphs:
         if para.text.strip():
             embedding_vector = embedding.encode(para.text)
+            print(f"Processing document {cnt}, embedding shape: {embedding_vector.shape if hasattr(embedding_vector, 'shape') else 'N/A'}")
             # Lưu vào cơ sở dữ liệu
             vector_db.insert_document(
                 collection_name="information",
@@ -37,6 +47,7 @@ if vector_db.count_documents("information") == 0:
                 }
             )
             cnt += 1
+    print(f"Successfully inserted {cnt-1} documents with ColBERT embeddings")
 else:
     print("Documents already exist in the database. Skipping insertion.")
 #------------------------------------------------------------------------------------
@@ -50,4 +61,4 @@ from metrics_rag import groundedness_k, response_relevancy_k, hit_k, bleu_4_k, c
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("context_precision_k@7:", context_precision_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=7, reranker=reranker, use_query_expansion=use_query_expansion))
+print("recall_k@5:", recall_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))

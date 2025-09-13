@@ -125,12 +125,6 @@ with st.sidebar:
                 ["BAAI/bge-m3", "Alibaba-NLP/gte-multilingual-base", "sentence-transformers/all-MiniLM-L6-v2"],
                 index=0
             )
-        elif embedding_type == "openai":
-            model_name = st.selectbox(
-                "Model:",
-                ["text-embedding-3-large", "text-embedding-3-small", "text-embedding-ada-002"],
-                index=0
-            )
         else:
             model_name = st.text_input("Model:", "BAAI/bge-m3")
     
@@ -463,19 +457,19 @@ with tab3:
         'map@k': [0.52, 0.55, 0.54],
         'mrr@k': [0.52, 0.55, 0.56],
         'ndcg@k': [0.54, 0.59, 0.6],
-        'context_precision@k': [0.90, 0.70, 0.57],
+        'context_precision@k': [0.77, 0.58, 0.59],
         'context_recall@k': [0.70, 0.56, 0.55],
         'context_entities_recall@k': [0.74, 0.78, 0.82]
     }
     
     llm_train = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.52, 0.58, 0.60],
-        'rouge_l@k': [0.18, 0.19, 0.2],
-        'bleu_4@k': [0.03, 0.04, 0.04],
-        'groundedness@k': [0.88, 0.91, 0.94],
-        'response_relevancy@k': [0.84, 0.85, 0.85],
-        'noise_sensitivity@k': [0.03, 0.03, 0.02]
+        'string_presence@k': [0.53, 0.58, 0.62],
+        'rouge_l@k': [0.23, 0.24, 0.24],
+        'bleu_4@k': [0.06, 0.06, 0.06],
+        'groundedness@k': [0.99, 1.00, 1.00],
+        'response_relevancy@k': [0.82, 0.83, 0.85],
+        'noise_sensitivity@k': [0.02, 0.02, 0.02]
     }
     
     col1, col2 = st.columns(2)
@@ -525,7 +519,7 @@ with tab3:
         'map@k': [0.86, 0.84, 0.85],
         'mrr@k': [0.87, 0.87, 0.89],
         'ndcg@k': [0.88, 0.87, 0.89],
-        'context_precision@k': [0.97, 0.71, 0.71],
+        'context_precision@k': [0.94, 0.68, 0.70],
         'context_recall@k': [0.9, 0.73, 0.74],
         'context_entities_recall@k': [0.91, 0.93, 0.95]
     }
@@ -535,9 +529,9 @@ with tab3:
         'string_presence@k': [0.78, 0.78, 0.79],
         'rouge_l@k': [0.50, 0.55, 0.53],
         'bleu_4@k': [0.26, 0.34, 0.29],
-        'groundedness@k': [0.99, 0.96, 0.99],
+        'groundedness@k': [0.99, 1.00, 1.00],
         'response_relevancy@k': [0.86, 0.86, 0.85],
-        'noise_sensitivity@k': [0.07, 0.03, 0.06]
+        'noise_sensitivity@k': [0.01, 0.00, 0.00]
     }
 
     col1, col2 = st.columns(2)
