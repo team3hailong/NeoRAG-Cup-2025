@@ -74,19 +74,25 @@ class VectorDatabase:
             collection = self.client.get_or_create_collection(name=collection_name)
             
             if is_colbert:
-                # For ColBERT, store the serialized multi-vector in metadata
-                # Use mean pooling as the main vector for ChromaDB compatibility
                 mean_embedding = np.mean(embedding, axis=0).tolist()
+                
+                metadata = {
+                    "colbert_embedding": pickle.dumps(embedding).hex(),
+                    "is_colbert": True,
+                    "embedding_shape_0": int(embedding.shape[0]),
+                    "embedding_shape_1": int(embedding.shape[1])
+                }
+                
+                if "m3_dense" in document:
+                    metadata["dense_cached"] = pickle.dumps(document["m3_dense"]).hex()
+                if "m3_sparse" in document:
+                    metadata["sparse_cached"] = pickle.dumps(document["m3_sparse"]).hex()
+                
                 collection.add(
                     documents=[document["information"]],
                     embeddings=[mean_embedding],
                     ids=[document["title"]],
-                    metadatas=[{
-                        "colbert_embedding": pickle.dumps(embedding).hex(),
-                        "is_colbert": True,
-                        "embedding_shape_0": int(embedding.shape[0]),
-                        "embedding_shape_1": int(embedding.shape[1])
-                    }]
+                    metadatas=[metadata]
                 )
             else:
                 collection.add(
@@ -200,20 +206,23 @@ class VectorDatabase:
             collection = self.client.get_or_create_collection(name=collection_name)
             
             if is_query_colbert:
-                # Get all documents for ColBERT similarity computation
                 all_results = collection.get(include=['documents', 'metadatas', 'embeddings'])
                 results = []
+                colbert_count = 0
+                dense_fallback_count = 0
                 
                 for i in range(len(all_results['ids'])):
                     metadata = all_results['metadatas'][i]
                     if metadata.get("is_colbert", False):
                         doc_embedding = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
                         score = embedding_model.compute_colbert_similarity(query_vector, doc_embedding)
+                        colbert_count += 1
                     else:
                         # Fallback to cosine similarity with mean pooling
                         query_mean = np.mean(query_vector, axis=0)
                         doc_vec = np.array(all_results['embeddings'][i])
                         score = np.dot(query_mean, doc_vec) / (np.linalg.norm(query_mean) * np.linalg.norm(doc_vec))
+                        dense_fallback_count += 1
                     
                     results.append({
                         "title": all_results['ids'][i],
@@ -221,10 +230,11 @@ class VectorDatabase:
                         "score": float(score)
                     })
                 
+                print(f"[Debug] ColBERT docs: {colbert_count}, Dense fallback docs: {dense_fallback_count}")
                 results.sort(key=lambda x: x["score"], reverse=True)
+                print(f"[Debug] Top 3 scores: {[r['score'] for r in results[:3]]}")
                 return results[:limit]
             else:
-                # Original dense vector search
                 results = collection.query(
                     query_embeddings=[query_vector],
                     n_results=limit
@@ -243,7 +253,6 @@ class VectorDatabase:
                 return []
             
             if is_query_colbert:
-                # Retrieve all documents for ColBERT similarity computation
                 all_results, _ = self.client.scroll(
                     collection_name=collection_name,
                     limit=10000  # Get all documents

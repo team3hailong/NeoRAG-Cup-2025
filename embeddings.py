@@ -35,22 +35,18 @@ class Embeddings:
         elif self.type == "sentence_transformers":
             if self.model_name == "BAAI/bge-m3" and self.use_colbert:
                 output = self.client.encode(
-                    doc, 
-                    return_dense=False, 
-                    return_sparse=False, 
+                    doc,
+                    return_dense=True,
+                    return_sparse=True,
                     return_colbert_vecs=True
                 )
-                colbert_vecs = output.get('colbert_vecs')
-                if colbert_vecs is not None:
-                    return colbert_vecs  # Shape: (num_tokens, embedding_dim)
-                else:
-                    raise ValueError("ColBERT vectors not found in output")
+                return output
             else:
                 embedding = self.client.encode(
                     doc, return_dense=True, return_sparse=False, return_colbert_vecs=False
                 )
                 if isinstance(embedding, dict):
-                    embedding = embedding.get('dense_vecs', embedding)    
+                    embedding = embedding.get('dense_vecs', embedding)
                 return embedding.tolist()
         elif self.type == "gemini":
             return self.client.models.embed_content(
