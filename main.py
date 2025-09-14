@@ -50,7 +50,6 @@ if vector_db.count_documents("information") == 0:
                 embedding_for_db = np.array(dense)
                 print(f"Using dense embeddings - shape: {embedding_for_db.shape}")
             
-            print(f"Processing document {cnt}, embedding shape: {embedding_for_db.shape}")
             # Store into vector DB with cached M3 representations
             vector_db.insert_document(
                 collection_name="information",

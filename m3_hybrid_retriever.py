@@ -72,66 +72,44 @@ class M3HybridRetriever:
         
         # Encode query
         query_embeddings = self.encode_query(query)
-        
-        # Get all documents from vector DB (optimized)
-        all_results = self.vector_db.client.get_or_create_collection(name=collection_name).get(
-            include=['documents', 'metadatas', 'embeddings']
-        )
-        
+        # Efficient candidate selection: get top candidates from dense and ColBERT
+        candidate_pool = k * 2
+        dense_candidates = self.vector_db.query(collection_name, query_embeddings['dense'], limit=candidate_pool)
+        colbert_candidates = self.vector_db.query(collection_name, query_embeddings['colbert'], limit=candidate_pool, embedding_model=self.embedding_model)
+        # Union candidate set by title, mapping to document text
+        candidate_dict = {}
+        for item in dense_candidates + colbert_candidates:
+            candidate_dict[item['title']] = item['information']
         results = []
-        processed_count = 0
         re_encoding_count = 0
-        
-        for i in range(len(all_results['ids'])):
+        # Re-encode and score only selected candidates
+        for doc_title, doc_text in candidate_dict.items():
             try:
-                metadata = all_results['metadatas'][i]
-                doc_text = all_results['documents'][i]
-                doc_title = all_results['ids'][i]
-                
-                # Check if we have cached M3 representations in metadata
-                if (metadata.get("is_colbert", False) and 
-                    "dense_cached" in metadata and 
-                    "sparse_cached" in metadata):
-                    # Use cached embeddings
-                    doc_colbert = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
-                    doc_dense = pickle.loads(bytes.fromhex(metadata["dense_cached"]))
-                    doc_sparse = pickle.loads(bytes.fromhex(metadata["sparse_cached"]))
-                else:
-                    # Need to re-encode - this is expensive
-                    doc_m3 = self.embedding_model.encode(doc_text)
-                    doc_dense = doc_m3['dense_vecs']
-                    doc_sparse = doc_m3['lexical_weights']
-                    if metadata.get("is_colbert", False):
-                        doc_colbert = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
-                    else:
-                        doc_colbert = doc_m3['colbert_vecs']
-                    re_encoding_count += 1
-                
+                doc_m3 = self.embedding_model.encode(doc_text)
+                doc_dense = doc_m3['dense_vecs']
+                doc_sparse = doc_m3['lexical_weights']
+                doc_colbert = doc_m3['colbert_vecs']
+                re_encoding_count += 1
                 # Compute individual similarities
                 dense_sim = self.compute_dense_similarity(query_embeddings['dense'], doc_dense)
                 sparse_sim = self.compute_sparse_similarity(query_embeddings['sparse'], doc_sparse)
                 colbert_sim = self.compute_colbert_similarity(query_embeddings['colbert'], doc_colbert)
-                
-                # Hybrid score (following M3 paper weights)
+                # Hybrid score (M3 paper weights)
                 hybrid_score = (
                     self.dense_weight * dense_sim +
                     self.sparse_weight * sparse_sim +
                     self.colbert_weight * colbert_sim
                 )
-                
                 results.append({
                     'title': doc_title,
                     'information': doc_text,
                     'score': hybrid_score,
                     'dense_score': dense_sim,
-                    'sparse_score': sparse_sim, 
+                    'sparse_score': sparse_sim,
                     'colbert_score': colbert_sim
                 })
-                
-                processed_count += 1
-                
             except Exception as e:
-                print(f"Error processing document {i}: {e}")
+                print(f"Error scoring candidate {doc_title}: {e}")
                 continue
         
         # Sort by hybrid score

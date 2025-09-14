@@ -450,16 +450,16 @@ with tab3:
     # Create baseline data from the instructions
     retrieval_train = {
         'k': [3, 5, 7],
-        'hit@k': [0.59, 0.72, 0.76],
-        'recall@k': [0.41, 0.49, 0.54],
-        'precision@k': [0.22, 0.16, 0.13],
-        'f1@k': [0.28, 0.25, 0.21],
-        'map@k': [0.52, 0.55, 0.54],
-        'mrr@k': [0.52, 0.55, 0.56],
-        'ndcg@k': [0.54, 0.59, 0.6],
+        'hit@k': [0.64, 0.74, 0.75],
+        'recall@k': [0.46, 0.49, 0.55],
+        'precision@k': [0.24, 0.17, 0.13],
+        'f1@k': [0.31, 0.25, 0.21],
+        'map@k': [0.54, 0.55, 0.55],
+        'mrr@k': [0.54, 0.56, 0.56],
+        'ndcg@k': [0.57, 0.59, 0.60],
         'context_precision@k': [0.77, 0.58, 0.59],
         'context_recall@k': [0.70, 0.56, 0.55],
-        'context_entities_recall@k': [0.74, 0.78, 0.82]
+        'context_entities_recall@k': [0.75, 0.78, 0.82]
     }
     
     llm_train = {
@@ -512,16 +512,16 @@ with tab3:
 
     retrieval_test = {
         'k': [3, 5, 7],
-        'hit@k': [0.93, 0.93, 0.97],
-        'recall@k': [0.75, 0.78, 0.82],
-        'precision@k': [0.47, 0.3, 0.24],
-        'f1@k': [0.57, 0.43, 0.37],
-        'map@k': [0.86, 0.84, 0.85],
-        'mrr@k': [0.87, 0.87, 0.89],
-        'ndcg@k': [0.88, 0.87, 0.89],
-        'context_precision@k': [0.94, 0.68, 0.70],
-        'context_recall@k': [0.9, 0.73, 0.74],
-        'context_entities_recall@k': [0.91, 0.93, 0.95]
+        'hit@k': [0.97, 0.97, 0.97],
+        'recall@k': [0.76, 0.79, 0.80],
+        'precision@k': [0.48, 0.32, 0.25],
+        'f1@k': [0.59, 0.46, 0.39],
+        'map@k': [0.89, 0.89, 0.89],
+        'mrr@k': [0.91, 0.93, 0.93],
+        'ndcg@k': [0.92, 0.92, 0.92],
+        'context_precision@k': [0.94, 0.69, 0.66],
+        'context_recall@k': [0.92, 0.73, 0.72],
+        'context_entities_recall@k': [0.93, 0.94, 0.95]
     }
 
     llm_test = {

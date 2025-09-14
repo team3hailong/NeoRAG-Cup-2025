@@ -32,7 +32,6 @@ use_fast_retrieval = False
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True, use_fast_retrieval=use_fast_retrieval):
     # Use M3 retrieval if available
     if hasattr(embedding, 'use_colbert') and embedding.use_colbert:
-        print(f"Using M3 {'Fast ColBERT' if use_fast_retrieval else 'Hybrid'} Retrieval for: {query[:50]}...")
         
         if use_fast_retrieval:
             # Use fast ColBERT-only retrieval
