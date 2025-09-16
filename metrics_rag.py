@@ -12,20 +12,31 @@ import torch
 from m3_hybrid_retriever import create_m3_hybrid_retriever
 from fast_m3_retriever import create_fast_m3_retriever
 
-# Common system prompt for RAG-based ProPTIT context QA
-COMMON_RAG_SYSTEM_PROMPT = """Bạn là một trợ lý AI chuyên cung cấp thông tin về Câu lạc bộ Lập trình ProPTIT.
-Bạn sẽ nhận được dữ liệu ngữ cảnh (context) từ một hệ thống Retrieval-Augmented Generation (RAG) chứa các thông tin chính xác về CLB.
+COMMON_RAG_SYSTEM_PROMPT = """Bạn là một trợ lý AI thân thiện và khuyến khích, rất hiểu về Câu lạc bộ Lập trình ProPTIT.
+Nhiệm vụ của bạn là trả lời trực tiếp câu hỏi của người dùng về hoạt động, thành viên, quy trình training và các quyền lợi, nghĩa vụ trong CLB.
+Hãy dựa hoàn toàn vào thông tin trong context đã được cung cấp, không thêm kiến thức ngoài.
+Trả lời với giọng điệu thân thiện, nhiệt tình và cụ thể. Ví dụ:
+    - Bắt đầu bằng "Chào em," hoặc câu chào tương tự.
+    - Cung cấp thông tin chi tiết, chính xác như ví dụ mẫu.
+    - Nếu context không có thông tin cần thiết, nói: "Thông tin này không có trong tài liệu được cung cấp."
 
-Nguyên tắc trả lời NGHIÊM NGẶT:
-1. TUYỆT ĐỐI CHỈ sử dụng thông tin từ context được cung cấp để trả lời. KHÔNG ĐƯỢC thêm bất kỳ thông tin nào ngoài context.
-2. Nếu context không chứa thông tin để trả lời câu hỏi, hãy nói: "Thông tin này không có trong tài liệu được cung cấp."
-3. Mỗi câu trả lời phải có thể truy vết trực tiếp đến thông tin trong context.
-4. KHÔNG suy đoán, KHÔNG bịa đặt, KHÔNG sử dụng kiến thức chung.
-5. Trình bày câu trả lời ngắn gọn, chính xác dựa trên context.
-6. Tập trung trả lời đúng câu hỏi được đặt ra.
+Ví dụ định dạng trả lời (few-shot):
+User Question: "Tiêu chí đánh giá trong giai đoạn training là gì, và nếu em chưa giỏi lập trình thì em có thể tham gia câu lạc bộ được không ?"
+Document: "Trong vòng training, các anh chị sẽ đánh giá em về nhiều mặt khác nhau, bao gồm cả mảng học tập, hoạt động và cách giao tiếp giữa em với các thành viên CLB khác. Việc code chỉ là 1 phần trong số đó, em cố gắng thể hiện hết mình là được nhé, mọi nỗ lực em làm đều sẽ được anh chị ghi nhận và đánh giá. Anh chị đánh giá rất cao sự tiến bộ của các em trong quá trình training."
+Answer: "Chào em, trong vòng training, các anh chị sẽ đánh giá em về nhiều mặt khác nhau, bao gồm cả mảng học tập, hoạt động và cách giao tiếp giữa em với các thành viên CLB khác. Việc code chỉ là một phần trong số đó thôi, quan trọng là em cố gắng thể hiện hết mình. Mọi nỗ lực của em đều sẽ được anh chị ghi nhận và đánh giá cao. CLB rất mong chờ sự tiến bộ của các em trong quá trình này nhé!"
 
-Nhiệm vụ của bạn:
-- Trả lời các câu hỏi về CLB Lập trình ProPTIT CHÍNH XÁC dựa trên context được cung cấp."""
+User Question: "Thành viên CLB có thể đảm nhận những vị trí lãnh đạo nào?"
+Document: "Thành viên có quyền ứng cử, đề cử và bầu cử vào các vị trí lãnh đạo như Chủ nhiệm, Phó chủ nhiệm, Trưởng ban đào tạo, Trưởng ban sự kiện, Trưởng ban truyền thông, v.v."
+Answer: "Chào em, thành viên CLB của chúng mình có thể đảm nhận nhiều vị trí lãnh đạo khác nhau đó. Em có quyền ứng cử, đề cử và bầu cử vào các vị trí như Chủ nhiệm, Phó chủ nhiệm, Trưởng ban đào tạo, Trưởng ban sự kiện, Trưởng ban truyền thông, và nhiều vị trí khác nữa nhé!"
+
+User Question: "Khi tham gia CLB, thành viên sẽ được hưởng những quyền lợi gì và cần thực hiện những nghĩa vụ gì?"
+Document: "Quyền lợi gồm tham gia hoạt động học tập, dự án, ứng cử – đề cử, và học hỏi kỹ năng. Nghĩa vụ gồm tham gia đầy đủ, chấp hành nội quy, hoàn thành nhiệm vụ, đóng phí đúng hạn và đóng góp ý kiến xây dựng CLB."
+Answer: "Khi tham gia CLB, em sẽ có rất nhiều quyền lợi hấp dẫn như được tham gia các hoạt động học tập, dự án, có cơ hội ứng cử - đề cử vào các vị trí lãnh đạo, và được học hỏi thêm nhiều kỹ năng mới. Bên cạnh đó, để CLB ngày càng phát triển, em cũng cần thực hiện một số nghĩa vụ như tham gia đầy đủ các buổi sinh hoạt, chấp hành nội quy, hoàn thành tốt nhiệm vụ được giao, đóng phí đúng hạn và tích cực đóng góp ý kiến xây dựng CLB nhé!"
+
+User Question: "CLB có hoạt động mentoring cho thành viên mới không?"
+Document: "Có, mentor sẽ hướng dẫn kỹ thuật, giải đáp thắc mắc và giúp thành viên mới làm quen với dự án."
+Answer: "Chào em, CLB có hoạt động mentoring rất chu đáo cho thành viên mới đó! Mentor của CLB sẽ hướng dẫn em về kỹ thuật, giải đáp mọi thắc mắc và giúp em làm quen với các dự án một cách nhanh chóng nhất."
+"""
 
 # Helper to retrieve and optionally rerank results with query expansion
 use_fast_retrieval = False
@@ -967,7 +978,13 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
             "content": context + "\n\nCâu hỏi: " + query
         })
         # Gọi  API để lấy câu trả lời
-        user_embedding = embedding.encode(query)
+        user_embedding_raw = embedding.encode(query)
+        # Extract dense vectors for similarity calculation
+        if isinstance(user_embedding_raw, dict) and 'dense_vecs' in user_embedding_raw:
+            user_embedding = user_embedding_raw['dense_vecs']
+        else:
+            user_embedding = user_embedding_raw
+            
         response = get_llm_response(messages)
 
         raw_related = generate_related_questions(response, embedding)
@@ -981,7 +998,12 @@ def response_relevancy_k(file_clb_proptit, file_train, embedding, vector_db, k=5
             except Exception:
                 related_questions = []
         for question in related_questions:
-            question_embedding = embedding.encode(question)
+            question_embedding_raw = embedding.encode(question)
+            # Extract dense vectors for similarity calculation
+            if isinstance(question_embedding_raw, dict) and 'dense_vecs' in question_embedding_raw:
+                question_embedding = question_embedding_raw['dense_vecs']
+            else:
+                question_embedding = question_embedding_raw
             # Tính score relevancy giữa câu hỏi và query
             score = similarity(user_embedding, question_embedding)
             hits += score

@@ -519,19 +519,19 @@ with tab3:
         'map@k': [0.89, 0.89, 0.89],
         'mrr@k': [0.91, 0.93, 0.93],
         'ndcg@k': [0.92, 0.92, 0.92],
-        'context_precision@k': [0.94, 0.69, 0.66],
+        'context_precision@k': [0.94, 0.69, 0.66], #0.73
         'context_recall@k': [0.92, 0.73, 0.72],
-        'context_entities_recall@k': [0.93, 0.94, 0.95]
+        'context_entities_recall@k': [0.93, 0.94, 0.95] #0.94
     }
 
     llm_test = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.78, 0.78, 0.79],
-        'rouge_l@k': [0.50, 0.55, 0.53],
-        'bleu_4@k': [0.26, 0.34, 0.29],
+        'string_presence@k': [0.78, 0.78, 0.79], #0.84 0.86
+        'rouge_l@k': [0.50, 0.55, 0.53], #0.54
+        'bleu_4@k': [0.26, 0.34, 0.29], #0.34
         'groundedness@k': [0.99, 1.00, 1.00],
-        'response_relevancy@k': [0.86, 0.86, 0.85],
-        'noise_sensitivity@k': [0.01, 0.00, 0.00]
+        'response_relevancy@k': [0.86, 0.86, 0.85], #0.87
+        'noise_sensitivity@k': [0.01, 0.00, 0.00] #0.02
     }
 
     col1, col2 = st.columns(2)
