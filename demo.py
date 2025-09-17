@@ -204,7 +204,19 @@ with st.sidebar:
                         
                         for i, para in enumerate(doc.paragraphs):
                             if para.text.strip():
-                                embedding_vector = st.session_state.embedding_model.encode(para.text)
+                                embedding_result = st.session_state.embedding_model.encode(para.text)
+                                
+                                # Handle different embedding formats
+                                if isinstance(embedding_result, dict):
+                                    # BGE-M3 returns dict with keys like 'dense_vecs', 'lexical_weights', etc.
+                                    if 'dense_vecs' in embedding_result:
+                                        embedding_vector = embedding_result['dense_vecs']
+                                    else:
+                                        # Fallback to first available vector
+                                        embedding_vector = list(embedding_result.values())[0]
+                                else:
+                                    embedding_vector = embedding_result
+                                
                                 st.session_state.vector_db.insert_document(
                                     collection_name="information",
                                     document={

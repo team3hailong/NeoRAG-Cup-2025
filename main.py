@@ -76,4 +76,4 @@ from metrics_rag import  ndcg_k, response_relevancy_k, hit_k, bleu_4_k, context_
 # print(df_retrieval_metrics.head())
 # print(df_llm_metrics.head())
 
-print("string_presence_k@5:", string_presence_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+print("noise_sensitivity_k@5:", noise_sensitivity_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
