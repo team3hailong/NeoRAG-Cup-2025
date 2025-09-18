@@ -194,7 +194,7 @@ def hit_k(file_clb_proptit, file_train_data_proptit, embedding, vector_db, reran
         # TODO: Nếu các em dùng Text2SQL RAG hay các phương pháp sử dụng ngôn ngữ truy vấn, có thể bỏ qua biến user_embedding
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Retrieve top-k (with optional reranking and query expansion) using fast retrieval
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion, use_fast_retrieval=True)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
          
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
@@ -225,7 +225,7 @@ def recall_k(file_clb_proptit, file_train, embedding, vector_db, reranker=None, 
         # Các em có thể dùng các kĩ thuật để viết lại câu query, Reranking, ... ở đoạn này.
         # Embedding câu query
         # Retrieve top-k (with optional reranking and query expansion) using fast retrieval
-        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion, use_fast_retrieval=True)
+        results = retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion)
 
         # Lấy danh sách tài liệu được truy suất
         retrieved_docs = [int(result['title'].split(' ')[-1]) for result in results]
