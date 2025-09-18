@@ -7,13 +7,9 @@ import numpy as np
 from typing import Dict, List, Tuple, Any
 import torch
 import pickle
-import re
 
 class M3HybridRetriever:
-    def __init__(self, embedding_model, vector_db, weights=(0.4, 0.2, 0.4), *,
-                 per_query_normalization: bool = True,
-                 use_mmr: bool = True,
-                 mmr_lambda: float = 0.7):
+    def __init__(self, embedding_model, vector_db, weights=(0.0, 1.0, 0.0)):
         """
         Initialize M3 Hybrid Retriever
         
@@ -21,16 +17,10 @@ class M3HybridRetriever:
             embedding_model: M3 embedding model
             vector_db: Vector database instance
             weights: (dense_weight, sparse_weight, colbert_weight) for hybrid scoring
-            per_query_normalization: If True, min-max normalize each component across candidate set
-            use_mmr: Apply MMR re-ranking to encourage diversity (helps entity coverage & BLEU)
-            mmr_lambda: Trade-off between relevance (λ) and diversity (1-λ)
         """
         self.embedding_model = embedding_model
         self.vector_db = vector_db
         self.dense_weight, self.sparse_weight, self.colbert_weight = weights
-        self.per_query_normalization = per_query_normalization
-        self.use_mmr = use_mmr
-        self.mmr_lambda = mmr_lambda
         
     def encode_query(self, query: str) -> Dict[str, Any]:
         """Encode query with all M3 representations"""
@@ -117,7 +107,6 @@ class M3HybridRetriever:
         )
         
         results = []
-        re_encoding_count = 0
         
         for i in range(len(all_results['ids'])):
             try:
@@ -125,44 +114,21 @@ class M3HybridRetriever:
                 doc_text = all_results['documents'][i]
                 doc_title = all_results['ids'][i]
                 
-                # Check if we have cached M3 representations in metadata
-                if (metadata.get("is_colbert", False) and 
-                    "dense_cached" in metadata and 
-                    "sparse_cached" in metadata):
-                    # Use cached embeddings
-                    doc_colbert = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
-                    doc_dense = pickle.loads(bytes.fromhex(metadata["dense_cached"]))
-                    doc_sparse = pickle.loads(bytes.fromhex(metadata["sparse_cached"]))
-                else:
-                    # Need to re-encode - this is expensive
-                    doc_m3 = self.embedding_model.encode(doc_text)
-                    doc_dense = doc_m3['dense_vecs']
-                    doc_sparse = doc_m3['lexical_weights']
-                    if metadata.get("is_colbert", False):
-                        doc_colbert = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
-                    else:
-                        doc_colbert = doc_m3['colbert_vecs']
-                    re_encoding_count += 1
+                # Always re-encode for simplicity
+                doc_m3 = self.embedding_model.encode(doc_text)
+                doc_dense = doc_m3['dense_vecs']
+                doc_sparse = doc_m3['lexical_weights']
+                doc_colbert = doc_m3['colbert_vecs']
                 
                 # Compute individual similarities
                 dense_sim = self.compute_dense_similarity(query_embeddings['dense'], doc_dense)
                 sparse_sim = self.compute_sparse_similarity(query_embeddings['sparse'], doc_sparse)
                 colbert_sim = self.compute_colbert_similarity(query_embeddings['colbert'], doc_colbert)
 
-                # Ensure all component scores are finite and in [0,1]
-                for s in (dense_sim, sparse_sim, colbert_sim):
-                    if s is None or np.isnan(s) or np.isinf(s):
-                        s = 0.0
-
-                # Re-normalize weights to sum to 1 in case they were configured differently
-                w_sum = float(self.dense_weight + self.sparse_weight + self.colbert_weight)
-                if w_sum == 0:
-                    w_sum = 1.0
-
                 hybrid_score = (
-                    (self.dense_weight / w_sum) * float(dense_sim) +
-                    (self.sparse_weight / w_sum) * float(sparse_sim) +
-                    (self.colbert_weight / w_sum) * float(colbert_sim)
+                    self.dense_weight * dense_sim +
+                    self.sparse_weight * sparse_sim +
+                    self.colbert_weight * colbert_sim
                 )
                 results.append({
                     'title': doc_title,
@@ -179,78 +145,14 @@ class M3HybridRetriever:
         if not results:
             return []
 
-        # --- Per-query component normalization (min-max) ---
-        if self.per_query_normalization:
-            def min_max(values):
-                v = np.array(values, dtype=float)
-                v = np.nan_to_num(v, nan=0.0, posinf=0.0, neginf=0.0)
-                vmin, vmax = float(v.min()), float(v.max())
-                if vmax - vmin < 1e-8:
-                    return [0.0] * len(v)
-                return [(x - vmin) / (vmax - vmin) for x in v]
-
-            dense_norm = min_max([r['dense_score'] for r in results])
-            sparse_norm = min_max([r['sparse_score'] for r in results])
-            colbert_norm = min_max([r['colbert_score'] for r in results])
-
-            w_sum = float(self.dense_weight + self.sparse_weight + self.colbert_weight) or 1.0
-            dw, sw, cw = self.dense_weight / w_sum, self.sparse_weight / w_sum, self.colbert_weight / w_sum
-            for idx, r in enumerate(results):
-                r['dense_score_norm'] = dense_norm[idx]
-                r['sparse_score_norm'] = sparse_norm[idx]
-                r['colbert_score_norm'] = colbert_norm[idx]
-                r['score'] = dw * dense_norm[idx] + sw * sparse_norm[idx] + cw * colbert_norm[idx]
-
-        # Sort after normalization
+        # Sort by hybrid score
         results.sort(key=lambda x: x['score'], reverse=True)
-
-        # --- Optional MMR diversity re-ranking ---
-        if self.use_mmr and k > 1:
-            # Light-weight token-based Jaccard similarity to avoid re-encoding
-            token_cache = {}
-            word_pattern = re.compile(r"\w+", re.UNICODE)
-            def tokens(text: str):
-                if text not in token_cache:
-                    token_cache[text] = set(w.lower() for w in word_pattern.findall(text))
-                return token_cache[text]
-            def jaccard(a: str, b: str) -> float:
-                ta, tb = tokens(a), tokens(b)
-                if not ta or not tb:
-                    return 0.0
-                inter = len(ta & tb)
-                union = len(ta | tb)
-                return inter / union if union else 0.0
-
-            selected: List[Dict] = []
-            candidate_pool = results[: min(len(results), max(k * 4, k + 5))]  # broaden pool for diversity
-            while candidate_pool and len(selected) < k:
-                if not selected:
-                    chosen = candidate_pool.pop(0)
-                    chosen['mmr_score'] = chosen['score']
-                    selected.append(chosen)
-                    continue
-                best_doc = None
-                best_mmr = -1e9
-                for cand in candidate_pool:
-                    redundancy = 0.0
-                    for s in selected:
-                        redundancy = max(redundancy, jaccard(cand['information'], s['information']))
-                    mmr_score = self.mmr_lambda * cand['score'] - (1 - self.mmr_lambda) * redundancy
-                    if mmr_score > best_mmr:
-                        best_mmr = mmr_score
-                        best_doc = cand
-                if best_doc is None:
-                    break
-                best_doc['mmr_score'] = best_mmr
-                selected.append(best_doc)
-                candidate_pool.remove(best_doc)
-            results = selected
         
         if results:
             print(f"Top result scores - Hybrid: {results[0]['score']:.4f} (Dense: {results[0]['dense_score']:.4f}, Sparse: {results[0]['sparse_score']:.4f}, ColBERT: {results[0]['colbert_score']:.4f})")
         
         return results[:k]
 
-def create_m3_hybrid_retriever(embedding_model, vector_db):
+def create_m3_hybrid_retriever(embedding_model, vector_db, weights=(0.0, 1.0, 0.0)):
     """Factory function to create M3 hybrid retriever"""
-    return M3HybridRetriever(embedding_model, vector_db)
+    return M3HybridRetriever(embedding_model, vector_db, weights)

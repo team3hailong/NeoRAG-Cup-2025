@@ -469,19 +469,19 @@ with tab3:
         'map@k': [0.54, 0.55, 0.55],
         'mrr@k': [0.54, 0.56, 0.56],
         'ndcg@k': [0.57, 0.59, 0.60],
-        'context_precision@k': [0.77, 0.58, 0.59],
-        'context_recall@k': [0.70, 0.56, 0.55],
-        'context_entities_recall@k': [0.75, 0.78, 0.82]
+        'context_precision@k': [0.88, 0.70, 0.71],
+        'context_recall@k': [0.71, 0.56, 0.55],
+        'context_entities_recall@k': [0.75, 0.80, 0.82]
     }
     
     llm_train = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.53, 0.58, 0.62],
-        'rouge_l@k': [0.23, 0.24, 0.24],
-        'bleu_4@k': [0.06, 0.06, 0.06],
-        'groundedness@k': [0.99, 1.00, 1.00],
-        'response_relevancy@k': [0.82, 0.83, 0.85],
-        'noise_sensitivity@k': [0.02, 0.02, 0.02]
+        'string_presence@k': [0.73, 0.72, 0.72],
+        'rouge_l@k': [0.25, 0.25, 0.25],
+        'bleu_4@k': [0.05, 0.06, 0.05],
+        'groundedness@k': [0.94, 0.94, 0.97],
+        'response_relevancy@k': [0.87, 0.87, 0.87],
+        'noise_sensitivity@k': [0.15, 0.14, 0.08]
     }
     
     col1, col2 = st.columns(2)
@@ -531,19 +531,19 @@ with tab3:
         'map@k': [0.89, 0.89, 0.89],
         'mrr@k': [0.91, 0.93, 0.93],
         'ndcg@k': [0.92, 0.92, 0.92],
-        'context_precision@k': [0.94, 0.69, 0.66], #0.73
-        'context_recall@k': [0.92, 0.73, 0.72],
-        'context_entities_recall@k': [0.93, 0.94, 0.95] #0.94
+        'context_precision@k': [0.98, 0.76, 0.71],
+        'context_recall@k': [0.88, 0.71, 0.73],
+        'context_entities_recall@k': [0.92, 0.94, 0.95]
     }
 
     llm_test = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.78, 0.78, 0.79], #0.84 0.86
-        'rouge_l@k': [0.50, 0.55, 0.53], #0.54
-        'bleu_4@k': [0.26, 0.34, 0.29], #0.34
+        'string_presence@k': [0.83, 0.87, 0.84],
+        'rouge_l@k': [0.54, 0.55, 0.55],
+        'bleu_4@k': [0.32, 0.34, 0.34],
         'groundedness@k': [0.99, 1.00, 1.00],
-        'response_relevancy@k': [0.86, 0.86, 0.85], #0.87
-        'noise_sensitivity@k': [0.01, 0.00, 0.00] #0.02
+        'response_relevancy@k': [0.86, 0.87, 0.86],
+        'noise_sensitivity@k': [0.03, 0.01, 0.04]
     }
 
     col1, col2 = st.columns(2)
