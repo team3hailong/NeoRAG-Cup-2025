@@ -9,7 +9,7 @@ import torch
 import pickle
 
 class M3HybridRetriever:
-    def __init__(self, embedding_model, vector_db, weights=(0.0, 1.0, 0.0)):
+    def __init__(self, embedding_model, vector_db, weights=(0.3, 0.2, 0.5)):
         """
         Initialize M3 Hybrid Retriever
         
@@ -92,7 +92,7 @@ class M3HybridRetriever:
             print(f"ColBERT similarity error: {e}")
             return 0.0
     
-    def retrieve_hybrid(self, query: str, k: int = 5, collection_name: str = "information") -> List[Dict]:
+    def retrieve_hybrid(self, query: str, k: int = 5, collection_name: str = "information", candidate_pool: int = 100) -> List[Dict]:
         """
         Optimized hybrid retrieval using M3 representations
         """
@@ -100,30 +100,54 @@ class M3HybridRetriever:
         
         # Encode query
         query_embeddings = self.encode_query(query)
-        
-        # Get all documents from vector DB
-        all_results = self.vector_db.client.get_or_create_collection(name=collection_name).get(
-            include=['documents', 'metadatas', 'embeddings']
+
+        results: List[Dict] = []
+
+        client = self.vector_db.client
+        collection = client.get_or_create_collection(name=collection_name)
+        # Build a query vector for ANN candidate retrieval
+        if query_embeddings.get('colbert') is not None:
+            q_mean = np.mean(query_embeddings['colbert'], axis=0).tolist()
+        else:
+            q_mean = query_embeddings['dense']
+        # Retrieve a small candidate pool using ANN
+        cand = collection.query(
+            query_embeddings=[q_mean],
+            n_results=max(k * 10, candidate_pool),
+            include=["documents", "metadatas", "distances"]
         )
-        
-        results = []
-        
-        for i in range(len(all_results['ids'])):
+        # Flatten returned lists
+        ids = cand.get('ids', [[]])[0]
+        docs = cand.get('documents', [[]])[0]
+        metas = cand.get('metadatas', [[]])[0]
+        for i in range(len(ids)):
             try:
-                metadata = all_results['metadatas'][i]
-                doc_text = all_results['documents'][i]
-                doc_title = all_results['ids'][i]
-                
-                # Always re-encode for simplicity
-                doc_m3 = self.embedding_model.encode(doc_text)
-                doc_dense = doc_m3['dense_vecs']
-                doc_sparse = doc_m3['lexical_weights']
-                doc_colbert = doc_m3['colbert_vecs']
-                
-                # Compute individual similarities
-                dense_sim = self.compute_dense_similarity(query_embeddings['dense'], doc_dense)
-                sparse_sim = self.compute_sparse_similarity(query_embeddings['sparse'], doc_sparse)
-                colbert_sim = self.compute_colbert_similarity(query_embeddings['colbert'], doc_colbert)
+                doc_title = ids[i]
+                doc_text = docs[i]
+                metadata = metas[i] or {}
+                doc_dense = None
+                doc_sparse = None
+                doc_colbert = None
+                if metadata.get("dense_cached"):
+                    doc_dense = pickle.loads(bytes.fromhex(metadata["dense_cached"]))
+                if metadata.get("sparse_cached"):
+                    doc_sparse = pickle.loads(bytes.fromhex(metadata["sparse_cached"]))
+                if metadata.get("colbert_embedding"):
+                    doc_colbert = pickle.loads(bytes.fromhex(metadata["colbert_embedding"]))
+                # As a last resort, encode just this candidate (not whole corpus)
+                if doc_dense is None or doc_sparse is None or doc_colbert is None:
+                    try:
+                        enc = self.embedding_model.encode(doc_text)
+                        doc_dense = doc_dense or enc.get('dense_vecs')
+                        doc_sparse = doc_sparse or enc.get('lexical_weights', enc.get('sparse_weights', {}))
+                        doc_colbert = doc_colbert or enc.get('colbert_vecs')
+                    except Exception:
+                        pass
+
+                # Compute individual similarities (skip components that are missing)
+                dense_sim = self.compute_dense_similarity(query_embeddings['dense'], doc_dense) if doc_dense is not None else 0.0
+                sparse_sim = self.compute_sparse_similarity(query_embeddings['sparse'], doc_sparse) if doc_sparse else 0.0
+                colbert_sim = self.compute_colbert_similarity(query_embeddings['colbert'], doc_colbert) if doc_colbert is not None else 0.0
 
                 hybrid_score = (
                     self.dense_weight * dense_sim +
@@ -133,17 +157,14 @@ class M3HybridRetriever:
                 results.append({
                     'title': doc_title,
                     'information': doc_text,
-                    'score': hybrid_score,              # preliminary score
+                    'score': hybrid_score,
                     'dense_score': dense_sim,
                     'sparse_score': sparse_sim,
                     'colbert_score': colbert_sim
                 })
             except Exception as e:
-                print(f"Error processing document {i}: {e}")
+                print(f"Error scoring candidate {i}: {e}")
                 continue
-        
-        if not results:
-            return []
 
         # Sort by hybrid score
         results.sort(key=lambda x: x['score'], reverse=True)
@@ -153,6 +174,6 @@ class M3HybridRetriever:
         
         return results[:k]
 
-def create_m3_hybrid_retriever(embedding_model, vector_db, weights=(0.0, 1.0, 0.0)):
+def create_m3_hybrid_retriever(embedding_model, vector_db, weights=(0.3, 0.2, 0.5)):
     """Factory function to create M3 hybrid retriever"""
     return M3HybridRetriever(embedding_model, vector_db, weights)
