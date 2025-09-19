@@ -4,6 +4,7 @@ import numpy as np
 import json
 import time
 from docx import Document
+from ingest_utils import build_collection_from_docx
 import plotly.express as px
 import plotly.graph_objects as go
 from embeddings import Embeddings
@@ -133,6 +134,8 @@ with st.sidebar:
     with col1:
         use_reranker = st.checkbox("🔄 Reranker", value=True)
         use_query_expansion = st.checkbox("🔍 Query Expansion", value=True)
+        # Fast retrieval mode (ColBERT-only)
+        use_fast_retrieval = st.checkbox("⚡ Fast retrieval (ColBERT-only)", value=False)
     
     with col2:
         if use_reranker:
@@ -144,7 +147,7 @@ with st.sidebar:
     
     # LLM Configuration
     st.markdown("### 🤖 LLM Configuration")
-    llm_provider = st.selectbox("LLM Provider:", ["groq", "nvidia"], index=0)
+    llm_provider = st.selectbox("LLM Provider:", ["nvidia", "groq"], index=0)
     llm_config.LLM_PROVIDER = llm_provider
     if llm_provider == "groq":
         llm_model = "meta-llama/llama-4-maverick-17b-128e-instruct"
@@ -195,40 +198,21 @@ with st.sidebar:
                     else:
                         st.session_state.reranker = None
                     
-                    # Load documents if not already loaded
-                    if st.session_state.vector_db.count_documents("information") == 0:
-                        doc = Document("CLB_PROPTIT.docx")
-                        cnt = 1
+                    # Load documents if not already loaded (reusing ingest utility)
+                    current_count = st.session_state.vector_db.count_documents("information")
+                    if current_count == 0:
                         progress_bar = st.progress(0)
-                        total_paras = len([p for p in doc.paragraphs if p.text.strip()])
-                        
-                        for i, para in enumerate(doc.paragraphs):
-                            if para.text.strip():
-                                embedding_result = st.session_state.embedding_model.encode(para.text)
-                                
-                                # Handle different embedding formats
-                                if isinstance(embedding_result, dict):
-                                    # BGE-M3 returns dict with keys like 'dense_vecs', 'lexical_weights', etc.
-                                    if 'dense_vecs' in embedding_result:
-                                        embedding_vector = embedding_result['dense_vecs']
-                                    else:
-                                        # Fallback to first available vector
-                                        embedding_vector = list(embedding_result.values())[0]
-                                else:
-                                    embedding_vector = embedding_result
-                                
-                                st.session_state.vector_db.insert_document(
-                                    collection_name="information",
-                                    document={
-                                        "title": f"Document {cnt}",
-                                        "information": para.text,
-                                        "embedding": embedding_vector
-                                    }
-                                )
-                                cnt += 1
-                                progress_bar.progress((i + 1) / total_paras)
-                        
-                        st.success(f"Đã load {cnt-1} documents vào database!")
+                        def on_progress(done, total):
+                            progress_bar.progress(done / max(total, 1))
+                        inserted = build_collection_from_docx(
+                            doc_path="CLB_PROPTIT.docx",
+                            embedding_model=st.session_state.embedding_model,
+                            vector_db=st.session_state.vector_db,
+                            collection_name="information",
+                            rebuild=False,
+                            progress_callback=on_progress,
+                        )
+                        st.success(f"Đã load {inserted} documents vào database!")
                     else:
                         st.info("Documents đã tồn tại trong database.")
                     
@@ -285,7 +269,8 @@ with tab1:
                         vector_db=st.session_state.vector_db,
                         reranker=st.session_state.reranker,
                         k=top_k,
-                        use_query_expansion=use_query_expansion
+                        use_query_expansion=use_query_expansion,
+                        use_fast_retrieval=use_fast_retrieval
                     )
                     
                     retrieval_time = time.time() - start_time
@@ -299,7 +284,7 @@ with tab1:
                                 st.write(f"**Score:** {doc['score']:.4f}")
                     
                     # Generate answer using selected LLM provider
-                    keywords = [word.strip(',.?\!"') for word in user_query.split() if len(word) > 2]
+                    keywords = [word.strip(',.?!"') for word in user_query.split() if len(word) > 2]
                     filtered_docs = []
                     for doc in results:
                         info = doc.get('information', '')
@@ -456,9 +441,6 @@ with tab2:
 with tab3:
     st.header("📈 Performance Analysis")
     
-    # Baseline comparison
-    st.subheader("🎯 So sánh với Baseline")
-    
     # Create baseline data from the instructions
     retrieval_train = {
         'k': [3, 5, 7],
@@ -490,37 +472,11 @@ with tab3:
         st.subheader("🔍 Retrieval Metrics (Train)")
         df_baseline_ret = pd.DataFrame(retrieval_train)
         st.dataframe(df_baseline_ret)
-        
-        # Plot baseline retrieval
-        fig = go.Figure()
-        metrics_to_plot = ['hit@k', 'recall@k', 'precision@k', 'ndcg@k']
-        for metric in metrics_to_plot:
-            fig.add_trace(go.Scatter(
-                x=df_baseline_ret['k'],
-                y=df_baseline_ret[metric],
-                mode='lines+markers',
-                name=metric
-            ))
-        fig.update_layout(title="Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
-        st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         st.subheader("🤖 LLM Metrics (Train)")
         df_baseline_llm = pd.DataFrame(llm_train)
         st.dataframe(df_baseline_llm)
-        
-        # Plot baseline LLM
-        fig = go.Figure()
-        metrics_to_plot = ['string_presence@k', 'rouge_l@k', 'groundedness@k', 'response_relevancy@k']
-        for metric in metrics_to_plot:
-            fig.add_trace(go.Scatter(
-                x=df_baseline_llm['k'],
-                y=df_baseline_llm[metric],
-                mode='lines+markers',
-                name=metric
-            ))
-        fig.update_layout(title="LLM Metrics", xaxis_title="K", yaxis_title="Score")
-        st.plotly_chart(fig, use_container_width=True)
 
     retrieval_test = {
         'k': [3, 5, 7],
@@ -552,37 +508,11 @@ with tab3:
         st.subheader("🔍 Retrieval Metrics (Train)")
         df_baseline_ret = pd.DataFrame(retrieval_test)
         st.dataframe(df_baseline_ret)
-        
-        # Plot baseline retrieval
-        fig = go.Figure()
-        metrics_to_plot = ['hit@k', 'recall@k', 'precision@k', 'ndcg@k']
-        for metric in metrics_to_plot:
-            fig.add_trace(go.Scatter(
-                x=df_baseline_ret['k'],
-                y=df_baseline_ret[metric],
-                mode='lines+markers',
-                name=metric
-            ))
-        fig.update_layout(title="Retrieval Metrics", xaxis_title="K", yaxis_title="Score")
-        st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         st.subheader("🤖 LLM Metrics (Train)")
         df_baseline_llm = pd.DataFrame(llm_test)
         st.dataframe(df_baseline_llm)
-        
-        # Plot baseline LLM
-        fig = go.Figure()
-        metrics_to_plot = ['string_presence@k', 'rouge_l@k', 'groundedness@k', 'response_relevancy@k']
-        for metric in metrics_to_plot:
-            fig.add_trace(go.Scatter(
-                x=df_baseline_llm['k'],
-                y=df_baseline_llm[metric],
-                mode='lines+markers',
-                name=metric
-            ))
-        fig.update_layout(title="LLM Metrics", xaxis_title="K", yaxis_title="Score")
-        st.plotly_chart(fig, use_container_width=True)
     
     # Individual metric testing
     if st.session_state.initialized:
@@ -650,28 +580,14 @@ with tab4:
             doc = Document("CLB_PROPTIT.docx")
             total_paragraphs = len([p for p in doc.paragraphs if p.text.strip()])
             total_chars = sum(len(p.text) for p in doc.paragraphs if p.text.strip())
-            avg_para_length = total_chars / total_paragraphs if total_paragraphs > 0 else 0
             
             st.metric("📝 Tổng paragraphs", total_paragraphs)
             st.metric("🔤 Tổng ký tự", f"{total_chars:,}")
-            st.metric("📏 Độ dài trung bình", f"{avg_para_length:.0f} chars")
             
         except Exception as e:
             st.error(f"Không thể đọc file DOCX: {str(e)}")
     
     with col2:
-        st.subheader("🎯 Query Statistics")
-        try:
-            df_train = pd.read_excel("train_data_proptit.xlsx")
-            st.metric("❓ Tổng queries (train)", len(df_train))
-            
-            if 'question' in df_train.columns:
-                avg_query_length = df_train['question'].str.len().mean()
-                st.metric("📏 Độ dài query TB", f"{avg_query_length:.0f} chars")
-            
-        except Exception as e:
-            st.error(f"Không thể đọc file train data: {str(e)}")
-    
         # Database status
         if st.session_state.initialized and st.session_state.vector_db:
             st.subheader("💾 Database Status")

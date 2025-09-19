@@ -12,6 +12,9 @@ import torch
 from m3_hybrid_retriever import create_m3_hybrid_retriever
 from fast_m3_retriever import create_fast_m3_retriever
 
+# Cache to store retrieval results and avoid redundant retrievals
+_RETRIEVAL_CACHE = {}
+
 COMMON_RAG_SYSTEM_PROMPT = """Bạn là một trợ lý AI thân thiện và khuyến khích, rất hiểu về Câu lạc bộ Lập trình ProPTIT.
 Nhiệm vụ của bạn là trả lời trực tiếp câu hỏi của người dùng về hoạt động, thành viên, quy trình training và các quyền lợi, nghĩa vụ trong CLB.
 Hãy dựa hoàn toàn vào thông tin trong context đã được cung cấp, không thêm kiến thức ngoài.
@@ -41,6 +44,10 @@ Answer: "Chào em, CLB có hoạt động mentoring rất chu đáo cho thành v
 # Helper to retrieve and optionally rerank results with query expansion
 use_fast_retrieval = False
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True, use_fast_retrieval=use_fast_retrieval):
+    # Check cache first
+    cache_key = (query, k, use_query_expansion, bool(reranker), use_fast_retrieval)
+    if cache_key in _RETRIEVAL_CACHE:
+        return _RETRIEVAL_CACHE[cache_key]
     # Use M3 retrieval if available
     if hasattr(embedding, 'use_colbert') and embedding.use_colbert:
         
@@ -165,9 +172,11 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
                 if res['information'] == rp:
                     reranked_results.append(res)
                     break
-        return reranked_results
-    
-    return all_results[:k]
+        results_to_return = reranked_results
+    else:
+        results_to_return = all_results[:k]
+    _RETRIEVAL_CACHE[cache_key] = results_to_return
+    return results_to_return
 
 load_dotenv()
 
