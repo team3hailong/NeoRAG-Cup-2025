@@ -99,7 +99,6 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
     else:
         # Fallback to original retrieval method
         if not use_query_expansion:
-            # Get M3 embeddings for query
             query_embeddings = embedding.encode(query)
             print(f"Query embedding keys: {list(query_embeddings.keys()) if isinstance(query_embeddings, dict) else 'Not dict'}")
             
@@ -136,7 +135,6 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
                     weight = 0.7 - (i-1) * 0.1  
                     retrieval_limit = max(2, k // 2)  
                 
-                # Get M3 embeddings for expanded query
                 query_embeddings = embedding.encode(exp_query)
                 # Extract ColBERT vectors for vector DB query if available
                 if isinstance(query_embeddings, dict) and 'colbert_vecs' in query_embeddings and embedding.use_colbert:

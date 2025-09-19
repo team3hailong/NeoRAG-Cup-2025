@@ -14,9 +14,10 @@ class QueryExpansion:
     Lớp QueryExpansion thực hiện các kỹ thuật mở rộng câu truy vấn để cải thiện hiệu suất retrieval trong RAG.
     
     Các kỹ thuật được áp dụng:
-    1. Query Rewriting - Viết lại câu hỏi với nhiều cách diễn đạt khác nhau
-    3. Synonym/Paraphrase Expansion - Mở rộng với từ đồng nghĩa và cách diễn đạt khác
-    4. Context-Aware Expansion - Mở rộng dựa trên ngữ cảnh CLB ProPTIT
+    1. LLM-Based Expansion - Sử dụng LLM để tạo các cách hỏi khác nhau (combined_llm_expansion)
+    2. Synonym Expansion - Mở rộng với từ đồng nghĩa sử dụng domain-specific keywords (synonym_expansion)
+    3. Context-Aware Expansion - Mở rộng dựa trên ngữ cảnh và intent của câu hỏi (context_aware_expansion)
+    4. Weighted Query Ranking - Xếp hạng các query mở rộng theo độ tương đồng với query gốc (rank_expanded_queries)
     """
     
     def __init__(self):
@@ -267,99 +268,3 @@ Chỉ thay đổi cách diễn đạt, giữ nguyên ý nghĩa."""
             unique_expanded.insert(0, query)
         
         return unique_expanded[:max_expansions]
-    
-    def rank_expanded_queries(self, original_query: str, expanded_queries: List[str], embedding_model) -> List[str]:
-        """
-        Xếp hạng các câu hỏi mở rộng dựa trên độ tương đồng với câu hỏi gốc
-        
-        Args:
-            original_query: Câu hỏi gốc
-            expanded_queries: Danh sách câu hỏi đã mở rộng
-            embedding_model: Model để tạo embedding
-        
-        Returns:
-            List[str]: Danh sách câu hỏi đã được xếp hạng
-        """
-        import torch
-        
-        if len(expanded_queries) <= 1:
-            return expanded_queries
-        
-        try:
-            # Tạo embedding cho câu hỏi gốc
-            original_embedding = embedding_model.encode(original_query)
-            
-            # Tính similarity scores
-            scores = []
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            original_tensor = torch.tensor(original_embedding, device=device, dtype=torch.float)
-            
-            for query in expanded_queries:
-                if query == original_query:
-                    scores.append((query, 1.0))  # Perfect score for original
-                else:
-                    query_embedding = embedding_model.encode(query)
-                    query_tensor = torch.tensor(query_embedding, device=device, dtype=torch.float)
-                    
-                    # Cosine similarity
-                    norm1 = torch.norm(original_tensor)
-                    norm2 = torch.norm(query_tensor)
-                    if norm1.item() == 0 or norm2.item() == 0:
-                        similarity = 0.0
-                    else:
-                        cos_sim = torch.dot(original_tensor, query_tensor) / (norm1 * norm2)
-                        similarity = cos_sim.item()
-                    
-                    scores.append((query, similarity))
-            
-            # Sort by similarity (descending)
-            scores.sort(key=lambda x: x[1], reverse=True)
-            
-            return [query for query, _ in scores]
-        
-        except Exception as e:
-            print(f"Error in ranking queries: {e}")
-            return expanded_queries
-
-
-def test_query_expansion():
-    """Function để test các kỹ thuật query expansion tối ưu"""
-    expander = QueryExpansion()
-    
-    test_queries = [
-        "CLB ProPTIT có những hoạt động gì?",
-        "Làm thế nào để tham gia CLB?",
-        "Những thành viên nổi bật của CLB là ai?",
-        "CLB được thành lập khi nào và có bao nhiêu thành viên?"
-    ]
-    
-    for query in test_queries:
-        print(f"\n{'='*50}")
-        print(f"Original Query: {query}")
-        print(f"{'='*50}")
-        
-        print("\n2. Synonym Expansion (Rule-based):")
-        synonyms = expander.synonym_expansion(query)
-        for i, syn in enumerate(synonyms):
-            print(f"   {i+1}. {syn}")
-        
-        print("\n3. Context-Aware Expansion (Template-based):")
-        context = expander.context_aware_expansion(query)
-        for i, ctx in enumerate(context):
-            print(f"   {i+1}. {ctx}")
-        
-        print("\n4. Combined LLM Expansion (1 API call):")
-        combined = expander.combined_llm_expansion(query)
-        for i, comb in enumerate(combined):
-            print(f"   {i+1}. {comb}")
-        
-        print("\n5. Optimized All Techniques Combined:")
-        all_expanded = expander.expand_query(query, max_expansions=8)
-        for i, exp in enumerate(all_expanded):
-            print(f"   {i+1}. {exp}")
-        
-        print(f"\nTotal expansions: {len(all_expanded)} (vs old version ~10-15)")
-
-
-if __name__ == "__main__":
-    test_query_expansion()

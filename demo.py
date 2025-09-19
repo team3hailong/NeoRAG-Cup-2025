@@ -496,7 +496,7 @@ with tab3:
         'k': [3, 5, 7],
         'string_presence@k': [0.83, 0.87, 0.84],
         'rouge_l@k': [0.54, 0.55, 0.55],
-        'bleu_4@k': [0.32, 0.34, 0.34],
+        'bleu_4@k': [0.32, 0.33, 0.34],
         'groundedness@k': [0.99, 1.00, 1.00],
         'response_relevancy@k': [0.86, 0.87, 0.86],
         'noise_sensitivity@k': [0.03, 0.01, 0.04]
