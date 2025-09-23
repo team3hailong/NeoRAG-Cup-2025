@@ -13,7 +13,13 @@ vector_db = VectorDatabase(db_type="chromadb")
 
 # Có thể dùng:
 # - Backtrack: model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers"
-embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
+# Prefer fine-tuned checkpoint if FINETUNED_EMB_PATH is set; else default to BGE-M3 base
+finetuned_path = os.getenv("FINETUNED_EMB_PATH")
+if finetuned_path and os.path.isdir(finetuned_path):
+    print(f"[Embeddings] Using fine-tuned checkpoint at: {finetuned_path}")
+    embedding = Embeddings(model_name=finetuned_path, type="sentence_transformers")
+else:
+    embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
 # - Backtrack: model_name="BAAI/bge-reranker-v2-m3"
 reranker = Reranker(model_name="namdp-ptit/ViRanker") if True else None
