@@ -11,13 +11,11 @@ from rerank import Reranker
 
 vector_db = VectorDatabase(db_type="chromadb")
 
-# Có thể dùng:
-# - Backtrack: model_name="Alibaba-NLP/gte-multilingual-base", type="sentence_transformers"
-# Prefer fine-tuned checkpoint if FINETUNED_EMB_PATH is set; else default to BGE-M3 base
-finetuned_path = os.getenv("FINETUNED_EMB_PATH")
-if finetuned_path and os.path.isdir(finetuned_path):
-    print(f"[Embeddings] Using fine-tuned checkpoint at: {finetuned_path}")
-    embedding = Embeddings(model_name=finetuned_path, type="sentence_transformers")
+#--------------------Chọn embedding model--------------------
+is_finetuned = True
+if is_finetuned:
+    print("[Embeddings] Using fine-tuned embeddings")
+    embedding = Embeddings(model_name="halobiron/bge-m3-embedding-PROPTIT-domain-ft", type="sentence_transformers")
 else:
     embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
@@ -41,9 +39,7 @@ print(f"Rebuilt collection 'information': inserted={inserted}, total={current_co
 
 from metrics_rag import  precision_k, groundedness_k, hit_k, bleu_4_k, context_recall_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k, noise_sensitivity_k, calculate_metrics_retrieval, calculate_metrics_llm_answer, recall_k
 
-# df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True) # đặt là True nếu là tập train, False là tập test
-# df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker) # đặt là True nếu là tập train, False là tập test
-# print(df_retrieval_metrics.head())
-# print(df_llm_metrics.head())
-
-print("precision_k@5:", precision_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
+df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
+print(df_retrieval_metrics.head())
+print(df_llm_metrics.head())
