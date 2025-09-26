@@ -928,7 +928,7 @@ Chỉ trả lời một từ: supported/unsupported/contradictory/no_rag"""
                 cnt += 1
             elif "unsupported" in words or "contradictory" in words:
                 cnt += 1
-        total_groundedness += hits / cnt if cnt > 0 else 1
+        total_groundedness += hits / cnt if cnt > 0 else 0
         print(f"Query {index+1}/{len(df_train)} - Groundedness: {hits}/{cnt} - Total: {total_groundedness:.3f}")
     return total_groundedness / len(df_train) if len(df_train) > 0 else 0 
 

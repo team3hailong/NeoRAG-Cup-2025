@@ -444,16 +444,16 @@ with tab3:
     # Create baseline data from the instructions
     retrieval_train = {
         'k': [3, 5, 7],
-        'hit@k': [0.64, 0.74, 0.75],
-        'recall@k': [0.46, 0.49, 0.55],
-        'precision@k': [0.24, 0.17, 0.13],
-        'f1@k': [0.31, 0.25, 0.21],
-        'map@k': [0.54, 0.55, 0.55],
-        'mrr@k': [0.54, 0.56, 0.56],
-        'ndcg@k': [0.57, 0.59, 0.60],
-        'context_precision@k': [0.88, 0.70, 0.71],
-        'context_recall@k': [0.71, 0.56, 0.55],
-        'context_entities_recall@k': [0.75, 0.80, 0.82]
+        'hit@k': [0.86, 0.85, 0.87],
+        'recall@k': [0.6, 0.64, 0.69],
+        'precision@k': [0.36, 0.24, 0.19],
+        'f1@k': [0.45, 0.35, 0.30],
+        'map@k': [0.70, 0.62, 0.58],
+        'mrr@k': [0.70, 0.66, 0.63],
+        'ndcg@k': [0.74, 0.69, 0.67],
+        'context_precision@k': [0.89, 0.69, 0.72],
+        'context_recall@k': [0.69, 0.58, 0.58],
+        'context_entities_recall@k': [0.76, 0.81, 0.84]
     }
     
     llm_train = {
