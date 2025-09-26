@@ -441,7 +441,6 @@ with tab2:
 with tab3:
     st.header("📈 Performance Analysis")
     
-    # Create baseline data from the instructions
     retrieval_train = {
         'k': [3, 5, 7],
         'hit@k': [0.86, 0.85, 0.87],
@@ -458,12 +457,12 @@ with tab3:
     
     llm_train = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.73, 0.72, 0.72],
-        'rouge_l@k': [0.25, 0.25, 0.25],
-        'bleu_4@k': [0.05, 0.06, 0.05],
-        'groundedness@k': [0.94, 0.94, 0.97],
-        'response_relevancy@k': [0.87, 0.87, 0.87],
-        'noise_sensitivity@k': [0.15, 0.14, 0.08]
+        'string_presence@k': [0.73, 0.73, 0.74],
+        'rouge_l@k': [0.25, 0.24, 0.26],
+        'bleu_4@k': [0.06, 0.05, 0.05],
+        'groundedness@k': [0.94, 0.95, 0.96],
+        'response_relevancy@k': [0.82, 0.82, 0.82],
+        'noise_sensitivity@k': [0.14, 0.14, 0.13]
     }
     
     col1, col2 = st.columns(2)
