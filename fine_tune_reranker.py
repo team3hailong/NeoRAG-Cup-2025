@@ -442,21 +442,12 @@ def main():
         seed=args.seed,
     )
     
-    # Custom loss for reranker (BCEWithLogitsLoss)
-    def compute_loss_fn(model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        logits = outputs.logits.squeeze(-1)
-        loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, labels)
-        return (loss, outputs) if return_outputs else loss
-    
     # Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        compute_loss=compute_loss_fn,
     )
     
     print("[Info] Starting training...")
