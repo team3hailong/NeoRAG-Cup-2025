@@ -205,4 +205,3 @@ Hệ thống NeoRAG được thiết kế với kiến trúc RAG tiên tiến, t
 - **Query Expansion**: Custom implementation với domain-specific keywords
 - **Metrics**: Comprehensive evaluation với 15+ metrics
 - **Document Processing**: `python-docx`, `pandas`, `numpy`
-

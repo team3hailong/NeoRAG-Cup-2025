@@ -19,8 +19,19 @@ if is_finetuned:
 else:
     embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
-# - Backtrack: model_name="BAAI/bge-reranker-v2-m3"
-reranker = Reranker(model_name="namdp-ptit/ViRanker") if True else None
+#--------------------Chọn reranker model--------------------
+# Tự động tìm fine-tuned reranker model mới nhất
+import glob
+finetuned_reranker_dirs = sorted(glob.glob("outputs/reranker-finetuned-*"), reverse=True)
+if finetuned_reranker_dirs and os.path.exists(os.path.join(finetuned_reranker_dirs[0], "config.json")):
+    print(f"[Reranker] Using fine-tuned reranker: {finetuned_reranker_dirs[0]}")
+    reranker = Reranker(model_name=finetuned_reranker_dirs[0])
+else:
+    # Fallback to pretrained models
+    # Các lựa chọn: "namdp-ptit/ViRanker", "BAAI/bge-reranker-v2-m3"
+    print("[Reranker] Using pretrained reranker: namdp-ptit/ViRanker")
+    reranker = Reranker(model_name="namdp-ptit/ViRanker")
+
 use_query_expansion = True
 
 #--------------------Build collection using shared ingest utility--------------------
@@ -39,7 +50,5 @@ print(f"Rebuilt collection 'information': inserted={inserted}, total={current_co
 
 from metrics_rag import  precision_k, groundedness_k, hit_k, bleu_4_k, context_recall_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k, noise_sensitivity_k, calculate_metrics_retrieval, calculate_metrics_llm_answer, recall_k
 
-df_retrieval_metrics_1 = calculate_metrics_retrieval("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-df_llm_metrics_1 = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_retrieval_metrics_1.head())
-print(df_llm_metrics_1.head())
+print("precision_k@5:", precision_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+print("hit_k@5:", hit_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))

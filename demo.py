@@ -480,25 +480,25 @@ with tab3:
     retrieval_test = {
         'k': [3, 5, 7],
         'hit@k': [0.97, 0.97, 0.97],
-        'recall@k': [0.76, 0.79, 0.80],
-        'precision@k': [0.48, 0.32, 0.25],
-        'f1@k': [0.59, 0.46, 0.39],
-        'map@k': [0.89, 0.89, 0.89],
-        'mrr@k': [0.91, 0.93, 0.93],
-        'ndcg@k': [0.92, 0.92, 0.92],
-        'context_precision@k': [0.98, 0.76, 0.71],
-        'context_recall@k': [0.88, 0.71, 0.73],
-        'context_entities_recall@k': [0.92, 0.94, 0.95]
+        'recall@k': [0.80, 0.84, 0.87],
+        'precision@k': [0.51, 0.33, 0.25],
+        'f1@k': [0.62, 0.48, 0.39],
+        'map@k': [0.91, 0.87, 0.86],
+        'mrr@k': [0.93, 0.88, 0.88],
+        'ndcg@k': [0.93, 0.90, 0.90],
+        'context_precision@k': [0.98, 0.75, 0.79],
+        'context_recall@k': [0.92, 0.75, 0.74],
+        'context_entities_recall@k': [0.92, 0.95, 0.96]
     }
 
     llm_test = {
         'k': [3, 5, 7],
-        'string_presence@k': [0.83, 0.87, 0.84],
-        'rouge_l@k': [0.54, 0.55, 0.55],
-        'bleu_4@k': [0.32, 0.33, 0.34],
+        'string_presence@k': [0.82, 0.88, 0.88],
+        'rouge_l@k': [0.55, 0.55, 0.55],
+        'bleu_4@k': [0.33, 0.34, 0.35],
         'groundedness@k': [0.99, 1.00, 1.00],
-        'response_relevancy@k': [0.86, 0.87, 0.86],
-        'noise_sensitivity@k': [0.03, 0.01, 0.04]
+        'response_relevancy@k': [0.82, 0.82, 0.81],
+        'noise_sensitivity@k': [0.03, 0.00, 0.02]
     }
 
     col1, col2 = st.columns(2)
