@@ -22,7 +22,7 @@ else:
 #--------------------Chọn reranker model--------------------
 # Tự động tìm fine-tuned reranker model mới nhất
 import glob
-finetuned_reranker_dirs = sorted(glob.glob("outputs/reranker-finetuned-*"), reverse=True)
+finetuned_reranker_dirs = sorted(glob.glob("outputs/reranker-finetuned"), reverse=True)
 if finetuned_reranker_dirs and os.path.exists(os.path.join(finetuned_reranker_dirs[0], "config.json")):
     print(f"[Reranker] Using fine-tuned reranker: {finetuned_reranker_dirs[0]}")
     reranker = Reranker(model_name=finetuned_reranker_dirs[0])

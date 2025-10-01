@@ -346,8 +346,7 @@ def main():
     args = parser.parse_args()
     
     seed_everything(args.seed)
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    out_dir = args.output_dir or os.path.join("outputs", f"reranker-finetuned-{timestamp}")
+    out_dir = args.output_dir or os.path.join("outputs", "reranker-finetuned")
     os.makedirs(out_dir, exist_ok=True)
     
     print("[Info] Loading corpus and training data...")
@@ -487,8 +486,7 @@ def main():
             "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "learning_rate": args.lr,
             "num_hard_negatives": args.num_hard_negatives,
-            "num_random_negatives": args.num_random_negatives,
-            "timestamp": timestamp,
+            "num_random_negatives": args.num_random_negatives
         }
         with open(os.path.join(out_dir, "training_info.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=2, ensure_ascii=False)
