@@ -12,21 +12,12 @@ class Reranker:
         effective_fp16 = use_fp16 and (self.device == "cuda")
         self.normalize = normalize
         
-        # Check if model_name is a local fine-tuned model path
-        is_local_model = os.path.isdir(model_name) and os.path.exists(os.path.join(model_name, "config.json"))
-        
-        if is_local_model:
-            print(f"[Reranker] Loading fine-tuned model from: {model_name}")
-        else:
-            print(f"[Reranker] Loading pretrained model: {model_name}")
-        
         try:
             self.reranker = FlagReranker(model_name, use_fp16=effective_fp16)
             self.reranker.model.to(self.device)
             print(f"[Reranker] Using device: {self.device} | FP16: {effective_fp16}")
         except Exception as e:
             print(f"[Error] Failed to load reranker model '{model_name}': {e}")
-            print("[Info] Falling back to namdp-ptit/ViRanker")
             self.reranker = FlagReranker("namdp-ptit/ViRanker", use_fp16=effective_fp16)
             self.reranker.model.to(self.device)
 

@@ -1,34 +1,3 @@
-"""
-Fine-tune Cross-Encoder Reranker for ProPTIT domain using FlagEmbedding.
-
-This script fine-tunes a reranker model (default: namdp-ptit/ViRanker or BAAI/bge-reranker-v2-m3)
-on domain-specific data to improve ranking quality for the ProPTIT RAG system.
-
-Data sources:
-- CLB_PROPTIT.csv: columns [STT, Văn bản] - corpus of 99 documents
-- train_data_proptit.xlsx: columns [Query, Ground truth document, Ground truth answer, Difficulty] - 100 queries
-
-Training approach:
-- Positive pairs: (query, ground_truth_doc)
-- Hard negatives: Top-k retrieved documents that are NOT ground truth
-- Soft negatives: Random sampled documents from corpus
-- Loss: Cross-Entropy with pairwise ranking
-
-Memory optimization for limited hardware (12.7GB RAM, 15GB GPU):
-- Small batch size (4-8)
-- Gradient accumulation (4-8 steps)
-- Mixed precision training (FP16)
-- Gradient checkpointing
-- Optional: LoRA/PEFT for parameter-efficient fine-tuning
-- Chunked data loading
-
-Outputs:
-- Fine-tuned reranker checkpoint at outputs/reranker-finetuned-<timestamp>
-
-Usage in app:
-    reranker = Reranker(model_name="outputs/reranker-finetuned-XXXXXX")
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -429,7 +398,7 @@ def main():
         logging_steps=args.logging_steps,
         save_steps=args.save_steps,
         eval_steps=args.eval_steps if eval_dataset else args.save_steps,
-        evaluation_strategy="steps" if eval_dataset else "no",
+        eval_strategy="steps" if eval_dataset else "no",
         save_strategy="steps",
         save_total_limit=2,
         load_best_model_at_end=True if eval_dataset else False,

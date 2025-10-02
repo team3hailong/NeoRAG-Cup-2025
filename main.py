@@ -12,23 +12,19 @@ from rerank import Reranker
 vector_db = VectorDatabase(db_type="chromadb")
 
 #--------------------Chọn embedding model--------------------
-is_finetuned = True
-if is_finetuned:
+is_embedding_finetuned = True
+if is_embedding_finetuned:
     print("[Embeddings] Using fine-tuned embeddings")
     embedding = Embeddings(model_name="halobiron/bge-m3-embedding-PROPTIT-domain-ft", type="sentence_transformers")
 else:
     embedding = Embeddings(model_name="BAAI/bge-m3", type="sentence_transformers")
 
 #--------------------Chọn reranker model--------------------
-# Tự động tìm fine-tuned reranker model mới nhất
-import glob
-finetuned_reranker_dirs = sorted(glob.glob("outputs/reranker-finetuned"), reverse=True)
-if finetuned_reranker_dirs and os.path.exists(os.path.join(finetuned_reranker_dirs[0], "config.json")):
-    print(f"[Reranker] Using fine-tuned reranker: {finetuned_reranker_dirs[0]}")
-    reranker = Reranker(model_name=finetuned_reranker_dirs[0])
+is_reranker_finetuned = True
+if is_reranker_finetuned:
+    print(f"[Reranker] Using fine-tuned reranker")
+    reranker = Reranker(model_name="halobiron/ViRanker-PROPTIT-domain-ft")
 else:
-    # Fallback to pretrained models
-    # Các lựa chọn: "namdp-ptit/ViRanker", "BAAI/bge-reranker-v2-m3"
     print("[Reranker] Using pretrained reranker: namdp-ptit/ViRanker")
     reranker = Reranker(model_name="namdp-ptit/ViRanker")
 
@@ -50,5 +46,7 @@ print(f"Rebuilt collection 'information': inserted={inserted}, total={current_co
 
 from metrics_rag import  precision_k, groundedness_k, hit_k, bleu_4_k, context_recall_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k, noise_sensitivity_k, calculate_metrics_retrieval, calculate_metrics_llm_answer, recall_k
 
-print("precision_k@5:", precision_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
-print("hit_k@5:", hit_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+df_retrieval_metrics_1 = calculate_metrics_retrieval("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
+df_llm_metrics_1 = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
+print(df_retrieval_metrics_1.head())
+print(df_llm_metrics_1.head())
