@@ -78,53 +78,53 @@ Hệ thống NeoRAG được thiết kế với kiến trúc RAG tiên tiến, t
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **Hit@k** | 0.64 | 0.74 | 0.75 |
-| **Recall@k** | 0.46 | 0.49 | 0.55 |
-| **Precision@k** | 0.24 | 0.17 | 0.13 |
-| **F1@k** | 0.31 | 0.25 | 0.21 |
-| **MAP@k** | 0.54 | 0.55 | 0.55 |
-| **MRR@k** | 0.54 | 0.56 | 0.56 |
-| **NDCG@k** | 0.57 | 0.59 | 0.60 |
-| **Context Precision@k** | 0.88 | 0.70 | 0.71 |
-| **Context Recall@k** | 0.71 | 0.56 | 0.55 |
-| **Context Entities Recall@k** | 0.75 | 0.80 | 0.82 |
+| **Hit@k** | 0.94 | 0.97 | 0.99 |
+| **Recall@k** | 0.79 | 0.91 | 0.95 |
+| **Precision@k** | 0.51 | 0.36 | 0.27 |
+| **F1@k** | 0.62 | 0.52 | 0.43 |
+| **MAP@k** | 0.74 | 0.69 | 0.66 |
+| **MRR@k** | 0.75 | 0.72 | 0.71 |
+| **NDCG@k** | 0.79 | 0.77 | 0.76 |
+| **Context Precision@k** | 0.84 | 0.62 | 0.67 |
+| **Context Recall@k** | 0.63 | 0.53 | 0.49 |
+| **Context Entities Recall@k** | 0.77 | 0.83 | 0.84 |
 
 ### 🤖 LLM Answer Metrics - Train Data
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **String Presence@k** | 0.73 | 0.72 | 0.72 |
-| **ROUGE-L@k** | 0.25 | 0.25 | 0.25 |
-| **BLEU-4@k** | 0.05 | 0.06 | 0.05 |
-| **Groundedness@k** | 0.94 | 0.94 | 0.97 |
-| **Response Relevancy@k** | 0.87 | 0.87 | 0.87 |
-| **Noise Sensitivity@k** | 0.15 | 0.14 | 0.08 |
+| **String Presence@k** | 0.75 | 0.73 | 0.73 |
+| **ROUGE-L@k** | 0.24 | 0.24 | 0.25 |
+| **BLEU-4@k** | 0.05 | 0.05 | 0.05 |
+| **Groundedness@k** | 0.93 | 0.96 | 0.96 |
+| **Response Relevancy@k** | 0.82 | 0.82 | 0.82 |
+| **Noise Sensitivity@k** | 0.18 | 0.19 | 0.17 |
 
 ### 🎯 Retrieval Metrics - Test Data (30 queries)
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
 | **Hit@k** | 0.97 | 0.97 | 0.97 |
-| **Recall@k** | 0.76 | 0.79 | 0.80 |
-| **Precision@k** | 0.48 | 0.32 | 0.25 |
-| **F1@k** | 0.59 | 0.46 | 0.39 |
-| **MAP@k** | 0.89 | 0.89 | 0.89 |
-| **MRR@k** | 0.91 | 0.93 | 0.93 |
-| **NDCG@k** | 0.92 | 0.92 | 0.92 |
-| **Context Precision@k** | 0.98 | 0.76 | 0.71 |
-| **Context Recall@k** | 0.88 | 0.71 | 0.73 |
-| **Context Entities Recall@k** | 0.92 | 0.94 | 0.95 |
+| **Recall@k** | 0.82 | 0.89 | 0.90 |
+| **Precision@k** | 0.53 | 0.36 | 0.27 |
+| **F1@k** | 0.65 | 0.51 | 0.41 |
+| **MAP@k** | 0.87 | 0.82 | 0.79 |
+| **MRR@k** | 0.88 | 0.86 | 0.86 |
+| **NDCG@k** | 0.90 | 0.87 | 0.86 |
+| **Context Precision@k** | 0.94 | 0.76 | 0.75 |
+| **Context Recall@k** | 0.88 | 0.73 | 0.72 |
+| **Context Entities Recall@k** | 0.94 | 0.96 | 0.96 |
 
 ### 🤖 LLM Answer Metrics - Test Data
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **String Presence@k** | 0.83 | 0.87 | 0.84 |
-| **ROUGE-L@k** | 0.54 | 0.55 | 0.55 |
-| **BLEU-4@k** | 0.32 | 0.33 | 0.34 |
+| **String Presence@k** | 0.84 | 0.86 | 0.87 |
+| **ROUGE-L@k** | 0.54 | 0.54 | 0.58 |
+| **BLEU-4@k** | 0.31 | 0.33 | 0.37 |
 | **Groundedness@k** | 0.99 | 1.00 | 1.00 |
-| **Response Relevancy@k** | 0.86 | 0.87 | 0.86 |
-| **Noise Sensitivity@k** | 0.03 | 0.01 | 0.04 |
+| **Response Relevancy@k** | 0.82 | 0.82 | 0.81 |
+| **Noise Sensitivity@k** | 0.02 | 0.02 | 0.00 |
 
 ## ✨ Điểm nổi bật (Điểm mạnh)
 
@@ -136,30 +136,6 @@ Hệ thống NeoRAG được thiết kế với kiến trúc RAG tiên tiến, t
 
 ### 🌟 Hiệu suất vượt trội:
 *NeoRAG đạt hiệu suất xuất sắc trên cả tập train và test với các kỹ thuật tối ưu hóa tiên tiến*
-
-**Train Data Performance (100 queries):**
-- **Hit@k hoàn hảo**: k=3: 64%, k=5: 74%, k=7: 75% - Độ chính xác retrieval cao
-- **Recall@k mạnh mẽ**: k=3: 46%, k=5: 49%, k=7: 55% - Bao phủ tốt các thông tin liên quan
-- **MAP@k vượt trội**: k=3: 54%, k=5: 55%, k=7: 55% - Thứ hạng kết quả tối ưu
-- **NDCG@k xuất sắc**: k=3: 57%, k=5: 59%, k=7: 60% - Chất lượng ranking cao
-- **Context Precision@k**: k=3: 88%, k=5: 70%, k=7: 71% - Độ chính xác ngữ cảnh vượt trội
-- **Context Entities Recall@k**: k=3: 75%, k=5: 80%, k=7: 82% - Thu thập thực thể đầy đủ
-- **Groundedness@k ổn định**: k=3: 94%, k=5: 94%, k=7: 97% - Câu trả lời dựa trên dữ liệu đáng tin cậy
-- **Response Relevancy@k**: 87% trên tất cả k - Độ liên quan cao với câu hỏi
-
-**Test Data Performance (30 queries):**
-- **Hit@k xuất sắc**: k=3: 97%, k=5: 97%, k=7: 97% - Tỷ lệ tìm thấy thông tin gần như hoàn hảo
-- **Recall@k vượt trội**: k=3: 76%, k=5: 79%, k=7: 80% - Thu thập thông tin toàn diện
-- **MAP@k & MRR@k tối ưu**: 89% và 91-93% - Thứ hạng kết quả xuất sắc
-- **NDCG@k hoàn hảo**: 92% trên tất cả k - Chất lượng ranking cao nhất
-- **Context Precision@k**: k=3: 98%, k=5: 76%, k=7: 71% - Độ chính xác ngữ cảnh vượt trội
-- **Context Entities Recall@k**: k=3: 92%, k=5: 94%, k=7: 95% - Thu thập thực thể gần như hoàn hảo
-- **String Presence@k mạnh mẽ**: k=3: 83%, k=5: 87%, k=7: 84% - Khớp trực tiếp với đáp án
-- **ROUGE-L@k cải thiện**: k=3: 54%, k=5: 55%, k=7: 55% - Độ tương đồng văn bản cao
-- **BLEU-4@k tiến bộ**: k=3: 32%, k=5: 33%, k=7: 34% - Đánh giá chất lượng ngôn ngữ tốt
-- **Groundedness@k hoàn hảo**: k=3: 99%, k=5: 100%, k=7: 100% - Câu trả lời cực kỳ đáng tin cậy
-- **Response Relevancy@k**: 86-87% - Độ liên quan cao với câu hỏi
-- **Noise Sensitivity@k thấp**: 0.01-0.04% - Tính ổn định cao, ít bị nhiễu
 
 ### 🔧 Tính linh hoạt:
 - **Multi-Database Support**: ChromaDB, MongoDB Atlas, Qdrant với khả năng mở rộng
