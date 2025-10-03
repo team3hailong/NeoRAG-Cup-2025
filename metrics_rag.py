@@ -9,8 +9,6 @@ from google import genai
 from rerank import Reranker
 from query_expansion import QueryExpansion
 import torch
-from m3_hybrid_retriever import create_m3_hybrid_retriever
-from fast_m3_retriever import create_fast_m3_retriever
 
 # Cache to store retrieval results and avoid redundant retrievals
 _RETRIEVAL_CACHE = {}
@@ -22,15 +20,16 @@ Trả lời với giọng điệu thân thiện, nhiệt tình và cụ thể. V
     - Bắt đầu bằng "Chào em," hoặc câu chào tương tự.
     - Cung cấp thông tin chi tiết, chính xác như ví dụ mẫu.
     - Nếu context không có thông tin cần thiết, nói: "Thông tin này không có trong tài liệu được cung cấp."
+QUAN TRỌNG - Quy tắc trích dẫn:
+- Sao chép CHÍNH XÁC các con số, ngày tháng, tên riêng từ context
+- Ví dụ: "9/10/2011" KHÔNG viết thành "ngày 9 tháng 10 năm 2011"
+- Giữ nguyên thuật ngữ: "PROPTIT" KHÔNG viết "Pro PTIT"
+- Giữ format chuẩn: "200 thành viên" KHÔNG viết "hai trăm thành viên"
 
 Ví dụ định dạng trả lời (few-shot):
 User Question: "Tiêu chí đánh giá trong giai đoạn training là gì, và nếu em chưa giỏi lập trình thì em có thể tham gia câu lạc bộ được không ?"
 Document: "Trong vòng training, các anh chị sẽ đánh giá em về nhiều mặt khác nhau, bao gồm cả mảng học tập, hoạt động và cách giao tiếp giữa em với các thành viên CLB khác. Việc code chỉ là 1 phần trong số đó, em cố gắng thể hiện hết mình là được nhé, mọi nỗ lực em làm đều sẽ được anh chị ghi nhận và đánh giá. Anh chị đánh giá rất cao sự tiến bộ của các em trong quá trình training."
 Answer: "Chào em, trong vòng training, các anh chị sẽ đánh giá em về nhiều mặt khác nhau, bao gồm cả mảng học tập, hoạt động và cách giao tiếp giữa em với các thành viên CLB khác. Việc code chỉ là một phần trong số đó thôi, quan trọng là em cố gắng thể hiện hết mình. Mọi nỗ lực của em đều sẽ được anh chị ghi nhận và đánh giá cao. CLB rất mong chờ sự tiến bộ của các em trong quá trình này nhé!"
-
-User Question: "Thành viên CLB có thể đảm nhận những vị trí lãnh đạo nào?"
-Document: "Thành viên có quyền ứng cử, đề cử và bầu cử vào các vị trí lãnh đạo như Chủ nhiệm, Phó chủ nhiệm, Trưởng ban đào tạo, Trưởng ban sự kiện, Trưởng ban truyền thông, v.v."
-Answer: "Chào em, thành viên CLB của chúng mình có thể đảm nhận nhiều vị trí lãnh đạo khác nhau đó. Em có quyền ứng cử, đề cử và bầu cử vào các vị trí như Chủ nhiệm, Phó chủ nhiệm, Trưởng ban đào tạo, Trưởng ban sự kiện, Trưởng ban truyền thông, và nhiều vị trí khác nữa nhé!"
 
 User Question: "Khi tham gia CLB, thành viên sẽ được hưởng những quyền lợi gì và cần thực hiện những nghĩa vụ gì?"
 Document: "Quyền lợi gồm tham gia hoạt động học tập, dự án, ứng cử – đề cử, và học hỏi kỹ năng. Nghĩa vụ gồm tham gia đầy đủ, chấp hành nội quy, hoàn thành nhiệm vụ, đóng phí đúng hạn và đóng góp ý kiến xây dựng CLB."
@@ -50,15 +49,9 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
         return _RETRIEVAL_CACHE[cache_key]
     # Use M3 retrieval if available
     if hasattr(embedding, 'use_colbert') and embedding.use_colbert:
-        
-        if use_fast_retrieval:
-            # Use fast ColBERT-only retrieval
-            fast_retriever = create_fast_m3_retriever(embedding, vector_db)
-            retrieval_method = fast_retriever.retrieve_colbert_only
-        else:
-            # Use full hybrid retrieval  
-            hybrid_retriever = create_m3_hybrid_retriever(embedding, vector_db)
-            retrieval_method = hybrid_retriever.retrieve_hybrid
+        from m3_retriever.m3_hybrid_retriever import create_m3_hybrid_retriever
+        hybrid_retriever = create_m3_hybrid_retriever(embedding, vector_db)
+        retrieval_method = hybrid_retriever.retrieve_hybrid
         
         if not use_query_expansion:
             all_results = retrieval_method(query, k * 2 if reranker else k)
@@ -180,11 +173,8 @@ load_dotenv()
 
 from llm_config import get_llm_response, get_config_info
 
-print("🤖 LLM Configuration:")
 config_info = get_config_info()
-print(f"   Provider: {config_info['provider']}")
-print(f"   Model: {config_info['model']}")
-print()
+print(f"🤖 LLM: {config_info['model']} ({config_info['provider']})\n")
 
 # Nên chạy từng hàm từ đoạn này để test
 

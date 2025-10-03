@@ -15,7 +15,6 @@ class Reranker:
         try:
             self.reranker = FlagReranker(model_name, use_fp16=effective_fp16)
             self.reranker.model.to(self.device)
-            print(f"[Reranker] Using device: {self.device} | FP16: {effective_fp16}")
         except Exception as e:
             print(f"[Error] Failed to load reranker model '{model_name}': {e}")
             self.reranker = FlagReranker("namdp-ptit/ViRanker", use_fp16=effective_fp16)
