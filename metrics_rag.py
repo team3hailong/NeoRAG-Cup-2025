@@ -5,8 +5,6 @@ import ast
 from dotenv import load_dotenv
 import requests
 import time
-from google import genai
-from rerank import Reranker
 from query_expansion import QueryExpansion
 import torch
 

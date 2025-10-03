@@ -101,50 +101,6 @@ with st.sidebar:
     # Default optimal configuration
     st.info("🎯 **Cấu hình tối ưu mặc định:** ChromaDB + BGE-M3 + ViRanker + Query Expansion")
     
-    # Main Configuration
-    st.markdown("### 📊 Vector Database")
-    db_type = st.radio(
-        "Chọn database:",
-        ["chromadb", "mongodb", "qdrant", "supabase"],
-        index=0,
-        horizontal=True
-    )
-    
-    st.markdown("### 🧠 Embedding Model")
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        embedding_type = st.selectbox(
-            "Loại model:",
-            ["sentence_transformers", "openai", "gemini", "ollama"],
-            index=0
-        )
-    
-    with col2:
-        if embedding_type == "sentence_transformers":
-            model_name = st.selectbox(
-                "Model:",
-                ["BAAI/bge-m3", "Alibaba-NLP/gte-multilingual-base", "sentence-transformers/all-MiniLM-L6-v2"],
-                index=0
-            )
-        else:
-            model_name = st.text_input("Model:", "BAAI/bge-m3")
-    
-    st.markdown("### 🔄 Retrieval Options")
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        use_reranker = st.checkbox("🔄 Reranker", value=True)
-        use_query_expansion = st.checkbox("🔍 Query Expansion", value=True)
-        # Fast retrieval mode (ColBERT-only)
-        use_fast_retrieval = st.checkbox("⚡ Fast retrieval (ColBERT-only)", value=False)
-    
-    with col2:
-        if use_reranker:
-            reranker_model = st.selectbox(
-                "Reranker:",
-                ["namdp-ptit/ViRanker", "BAAI/bge-reranker-v2-m3"],
-                index=0
-            )
-    
     # LLM Configuration
     st.markdown("### 🤖 LLM Configuration")
     llm_provider = st.selectbox("LLM Provider:", ["nvidia", "groq"], index=0)
@@ -183,6 +139,13 @@ with st.sidebar:
         if st.button("🔧 Khởi tạo hệ thống", type="primary", use_container_width=True):
             with st.spinner("Đang khởi tạo hệ thống..."):
                 try:
+                    db_type = "chromadb"
+                    model_name = "BAAI/bge-m3"
+                    embedding_type = "sentence_transformers"
+                    reranker_model = "namdp-ptit/ViRanker"
+                    use_reranker = True
+                    use_query_expansion = True
+                    
                     # Initialize vector database
                     st.session_state.vector_db = VectorDatabase(db_type=db_type)
                     
@@ -192,11 +155,8 @@ with st.sidebar:
                         type=embedding_type
                     )
                     
-                    # Initialize reranker if needed
-                    if use_reranker:
-                        st.session_state.reranker = Reranker(model_name=reranker_model)
-                    else:
-                        st.session_state.reranker = None
+                    # Initialize reranker
+                    st.session_state.reranker = Reranker(model_name=reranker_model)
                     
                     # Load documents if not already loaded (reusing ingest utility)
                     current_count = st.session_state.vector_db.count_documents("information")
@@ -233,7 +193,7 @@ with st.sidebar:
                 st.rerun()
 
 # Main content tabs
-tab1, tab2, tab3, tab4 = st.tabs(["💬 Chat Demo", "📊 Metrics", "📈 Performance", "📄 Dataset Info"])
+tab1, tab2 = st.tabs(["💬 Chat Demo", "📈 Performance"])
 
 with tab1:
     st.header("💬 Chat với hệ thống RAG")
@@ -269,8 +229,7 @@ with tab1:
                         vector_db=st.session_state.vector_db,
                         reranker=st.session_state.reranker,
                         k=top_k,
-                        use_query_expansion=use_query_expansion,
-                        use_fast_retrieval=use_fast_retrieval
+                        use_query_expansion=True
                     )
                     
                     retrieval_time = time.time() - start_time
@@ -372,233 +331,128 @@ with tab1:
                     st.markdown(f"**Thời gian:** {chat['retrieval_time']:.2f}s | **Docs:** {chat['num_docs']}")
 
 with tab2:
-    st.header("📊 Metrics Evaluation")
+    st.header("📈 Performance Analysis")
     
-    if not st.session_state.initialized:
-        st.warning("⚠️ Vui lòng khởi tạo hệ thống trước!")
-    else:
+    # Metrics data
+    metrics_data = {
+        "Train": {
+            "Retrieval": {
+                'k': [3, 5, 7],
+                'hit@k': [0.94, 0.97, 0.99],
+                'recall@k': [0.79, 0.91, 0.95],
+                'precision@k': [0.51, 0.36, 0.27],
+                'f1@k': [0.62, 0.52, 0.43],
+                'map@k': [0.74, 0.69, 0.66],
+                'mrr@k': [0.75, 0.72, 0.71],
+                'ndcg@k': [0.79, 0.77, 0.76],
+                'context_precision@k': [0.83, 0.64, 0.65],
+                'context_recall@k': [0.63, 0.53, 0.49],
+                'context_entities_recall@k': [0.77, 0.83, 0.84]
+            },
+            "LLM": {
+                'k': [3, 5, 7],
+                'string_presence@k': [0.74, 0.76, 0.75],
+                'rouge_l@k': [0.25, 0.25, 0.25],
+                'bleu_4@k': [0.06, 0.05, 0.05],
+                'groundedness@k': [0.94, 0.96, 0.96],
+                'response_relevancy@k': [0.82, 0.82, 0.82],
+                'noise_sensitivity@k': [0.17, 0.15, 0.14]
+            }
+        },
+        "Test": {
+            "Retrieval": {
+                'k': [3, 5, 7],
+                'hit@k': [0.97, 0.97, 0.97],
+                'recall@k': [0.82, 0.89, 0.90],
+                'precision@k': [0.53, 0.36, 0.27],
+                'f1@k': [0.65, 0.51, 0.41],
+                'map@k': [0.87, 0.82, 0.79],
+                'mrr@k': [0.88, 0.86, 0.86],
+                'ndcg@k': [0.90, 0.87, 0.86],
+                'context_precision@k': [0.96, 0.77, 0.76],
+                'context_recall@k': [0.88, 0.73, 0.72],
+                'context_entities_recall@k': [0.94, 0.96, 0.96]
+            },
+            "LLM": {
+                'k': [3, 5, 7],
+                'string_presence@k': [0.85, 0.86, 0.86],
+                'rouge_l@k': [0.55, 0.58, 0.59],
+                'bleu_4@k': [0.35, 0.38, 0.40],
+                'groundedness@k': [1.00, 1.00, 1.00],
+                'response_relevancy@k': [0.81, 0.81, 0.82],
+                'noise_sensitivity@k': [0.02, 0.02, 0.00]
+            }
+        }
+    }
+    
+    # Display metrics for each dataset
+    for dataset in ["Train", "Test"]:
+        st.subheader(f"📊 {dataset} Dataset")
         col1, col2 = st.columns(2)
         
         with col1:
-            eval_type = st.selectbox("Loại đánh giá", ["Retrieval Metrics", "LLM Answer Metrics"])
+            st.markdown("**🔍 Retrieval Metrics**")
+            df_ret = pd.DataFrame(metrics_data[dataset]["Retrieval"])
+            st.dataframe(df_ret, use_container_width=True)
         
         with col2:
-            dataset_type = st.selectbox("Dataset", ["Train", "Test"])
-        
-        if st.button("🧮 Tính toán Metrics"):
-            with st.spinner("Đang tính toán metrics..."):
-                try:
-                    is_train = dataset_type == "Train"
-                    
-                    if eval_type == "Retrieval Metrics":
-                        df_metrics = calculate_metrics_retrieval(
-                            "CLB_PROPTIT.csv",
-                            "train_data_proptit.xlsx",
-                            st.session_state.embedding_model,
-                            st.session_state.vector_db,
-                            is_train
-                        )
-                        
-                        st.subheader("📈 Retrieval Metrics Results")
-                        st.dataframe(df_metrics)
-                        
-                        # Visualize metrics
-                        if not df_metrics.empty:
-                            fig = px.line(
-                                df_metrics, 
-                                x='k', 
-                                y=['hit@k', 'recall@k', 'precision@k', 'f1@k'],
-                                title="Retrieval Metrics vs K"
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                    
-                    else:  # LLM Answer Metrics
-                        df_metrics = calculate_metrics_llm_answer(
-                            "CLB_PROPTIT.csv",
-                            "train_data_proptit.xlsx",
-                            st.session_state.embedding_model,
-                            st.session_state.vector_db,
-                            is_train,
-                            st.session_state.reranker
-                        )
-                        
-                        st.subheader("🤖 LLM Answer Metrics Results")
-                        st.dataframe(df_metrics)
-                        
-                        # Visualize metrics
-                        if not df_metrics.empty:
-                            fig = px.line(
-                                df_metrics,
-                                x='k',
-                                y=['string_presence@k', 'rouge_l@k', 'bleu_4@k', 'groundedness@k'],
-                                title="LLM Answer Metrics vs K"
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                except Exception as e:
-                    st.error(f"Lỗi khi tính toán metrics: {str(e)}")
-
-with tab3:
-    st.header("📈 Performance Analysis")
-    
-    retrieval_train = {
-        'k': [3, 5, 7],
-        'hit@k': [0.94, 0.97, 0.99],
-        'recall@k': [0.79, 0.91, 0.95],
-        'precision@k': [0.51, 0.36, 0.27],
-        'f1@k': [0.62, 0.52, 0.43],
-        'map@k': [0.74, 0.69, 0.66],
-        'mrr@k': [0.75, 0.72, 0.71],
-        'ndcg@k': [0.79, 0.77, 0.76],
-        'context_precision@k': [0.83, 0.64, 0.65],
-        'context_recall@k': [0.63, 0.53, 0.49],
-        'context_entities_recall@k': [0.77, 0.83, 0.84]
-    }
-    
-    llm_train = {
-        'k': [3, 5, 7],
-        'string_presence@k': [0.75, 0.73, 0.73],
-        'rouge_l@k': [0.24, 0.24, 0.25],
-        'bleu_4@k': [0.05, 0.05, 0.05],
-        'groundedness@k': [0.93, 0.96, 0.96],
-        'response_relevancy@k': [0.82, 0.82, 0.82],
-        'noise_sensitivity@k': [0.18, 0.19, 0.17]
-    }
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🔍 Retrieval Metrics (Train)")
-        df_baseline_ret = pd.DataFrame(retrieval_train)
-        st.dataframe(df_baseline_ret)
-    
-    with col2:
-        st.subheader("🤖 LLM Metrics (Train)")
-        df_baseline_llm = pd.DataFrame(llm_train)
-        st.dataframe(df_baseline_llm)
-
-    retrieval_test = {
-        'k': [3, 5, 7],
-        'hit@k': [0.97, 0.97, 0.97],
-        'recall@k': [0.82, 0.89, 0.90],
-        'precision@k': [0.53, 0.36, 0.27],
-        'f1@k': [0.65, 0.51, 0.41],
-        'map@k': [0.87, 0.82, 0.79],
-        'mrr@k': [0.88, 0.86, 0.86],
-        'ndcg@k': [0.90, 0.87, 0.86],
-        'context_precision@k': [0.96, 0.77, 0.76],
-        'context_recall@k': [0.88, 0.73, 0.72],
-        'context_entities_recall@k': [0.94, 0.96, 0.96]
-    }
-
-    llm_test = {
-        'k': [3, 5, 7],
-        'string_presence@k': [0.85, 0.86, 0.86],
-        'rouge_l@k': [0.55, 0.58, 0.59],
-        'bleu_4@k': [0.35, 0.38, 0.40],
-        'groundedness@k': [1.00, 1.00, 1.00],
-        'response_relevancy@k': [0.81, 0.81, 0.82],
-        'noise_sensitivity@k': [0.02, 0.02, 0.00]
-    }
-
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🔍 Retrieval Metrics (Train)")
-        df_baseline_ret = pd.DataFrame(retrieval_test)
-        st.dataframe(df_baseline_ret)
-    
-    with col2:
-        st.subheader("🤖 LLM Metrics (Train)")
-        df_baseline_llm = pd.DataFrame(llm_test)
-        st.dataframe(df_baseline_llm)
+            st.markdown("**🤖 LLM Metrics**")
+            df_llm = pd.DataFrame(metrics_data[dataset]["LLM"])
+            st.dataframe(df_llm, use_container_width=True)
     
     # Individual metric testing
     if st.session_state.initialized:
-        st.subheader("🔬 Test Individual Metrics")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            test_k = st.slider("K value", 1, 10, 5)
-        with col2:
-            metric_type = st.selectbox("Metric", [
-                "hit_k", "recall_k", "precision_k", "context_precision_k", 
-                "context_recall_k", "context_entities_recall_k", "ndcg_k"
-            ])
-        with col3:
-            test_expansion = st.checkbox("Use Query Expansion", value=True)
-        
-        if st.button("🧪 Test Metric"):
-            with st.spinner(f"Testing {metric_type}@{test_k}..."):
-                try:
-                    if metric_type == "hit_k":
-                        result = hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
-                                     st.session_state.embedding_model, st.session_state.vector_db, 
-                                     k=test_k, reranker=st.session_state.reranker, 
-                                     use_query_expansion=test_expansion)
-                    elif metric_type == "recall_k":
-                        result = recall_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
-                                        st.session_state.embedding_model, st.session_state.vector_db, 
-                                        k=test_k, reranker=st.session_state.reranker, 
-                                        use_query_expansion=test_expansion)
-                    elif metric_type == "precision_k":
-                        result = precision_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
-                                           st.session_state.embedding_model, st.session_state.vector_db, 
-                                           k=test_k, reranker=st.session_state.reranker, 
-                                           use_query_expansion=test_expansion)
-                    elif metric_type == "ndcg_k":
-                        result = ndcg_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
-                                      st.session_state.embedding_model, st.session_state.vector_db, 
-                                      k=test_k, reranker=st.session_state.reranker, 
-                                      use_query_expansion=test_expansion)
-                    
-                    st.success(f"**{metric_type}@{test_k}:** {result:.4f}")
-                    
-                    # Compare with baseline if available
-                    if test_k in [3, 5, 7] and metric_type.replace('_', '@') in retrieval_train:
-                        baseline_val = retrieval_train[metric_type.replace('_', '@')][retrieval_train['k'].index(test_k)]
-                        improvement = ((result - baseline_val) / baseline_val) * 100
+        with st.expander("🔬 Test Individual Metrics", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                test_k = st.slider("K value", 1, 10, 5)
+            with col2:
+                metric_type = st.selectbox("Metric", [
+                    "hit_k", "recall_k", "precision_k", "context_precision_k", 
+                    "context_recall_k", "context_entities_recall_k", "ndcg_k"
+                ])
+            with col3:
+                test_expansion = st.checkbox("Use Query Expansion", value=True)
+            
+            if st.button("🧪 Test Metric"):
+                with st.spinner(f"Testing {metric_type}@{test_k}..."):
+                    try:
+                        if metric_type == "hit_k":
+                            result = hit_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
+                                         st.session_state.embedding_model, st.session_state.vector_db, 
+                                         k=test_k, reranker=st.session_state.reranker, 
+                                         use_query_expansion=test_expansion)
+                        elif metric_type == "recall_k":
+                            result = recall_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
+                                            st.session_state.embedding_model, st.session_state.vector_db, 
+                                            k=test_k, reranker=st.session_state.reranker, 
+                                            use_query_expansion=test_expansion)
+                        elif metric_type == "precision_k":
+                            result = precision_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
+                                               st.session_state.embedding_model, st.session_state.vector_db, 
+                                               k=test_k, reranker=st.session_state.reranker, 
+                                               use_query_expansion=test_expansion)
+                        elif metric_type == "ndcg_k":
+                            result = ndcg_k("CLB_PROPTIT.csv", "train_data_proptit.xlsx", 
+                                          st.session_state.embedding_model, st.session_state.vector_db, 
+                                          k=test_k, reranker=st.session_state.reranker, 
+                                          use_query_expansion=test_expansion)
                         
-                        if improvement > 0:
-                            st.success(f"🎉 Cải thiện {improvement:.2f}% so với baseline!")
-                        else:
-                            st.warning(f"📉 Thấp hơn baseline {abs(improvement):.2f}%")
+                        st.success(f"**{metric_type}@{test_k}:** {result:.4f}")
+                        
+                        # Compare with baseline if available
+                        baseline_data = metrics_data["Train"]["Retrieval"] if metric_type in ["hit_k", "recall_k", "precision_k", "ndcg_k"] else {}
+                        if test_k in [3, 5, 7] and f"{metric_type}@{test_k}" in [f"{k}@{v}" for k, v in zip(baseline_data.keys(), baseline_data.values()) if k != 'k']:
+                            baseline_val = baseline_data[metric_type.replace('_', '@')][baseline_data['k'].index(test_k)]
+                            improvement = ((result - baseline_val) / baseline_val) * 100
                             
-                except Exception as e:
-                    st.error(f"Lỗi khi test metric: {str(e)}")
-
-with tab4:
-    st.header("📄 Dataset Information")
-    
-    # Dataset overview
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 Document Statistics")
-        try:
-            doc = Document("CLB_PROPTIT.docx")
-            total_paragraphs = len([p for p in doc.paragraphs if p.text.strip()])
-            total_chars = sum(len(p.text) for p in doc.paragraphs if p.text.strip())
-            
-            st.metric("📝 Tổng paragraphs", total_paragraphs)
-            st.metric("🔤 Tổng ký tự", f"{total_chars:,}")
-            
-        except Exception as e:
-            st.error(f"Không thể đọc file DOCX: {str(e)}")
-    
-    with col2:
-        # Database status
-        if st.session_state.initialized and st.session_state.vector_db:
-            st.subheader("💾 Database Status")
-            try:
-                doc_count = st.session_state.vector_db.count_documents("information")
-                status = ( "✅ Sẵn sàng"
-                    if doc_count > 0 else
-                    "⚠️ Trống"
-                )
-                st.metric(f"📚 Documents in DB | {status}", f"{doc_count}")
-            except Exception as e:
-                st.error(f"Lỗi khi kiểm tra database: {str(e)}")
+                            if improvement > 0:
+                                st.success(f"🎉 Cải thiện {improvement:.2f}% so với baseline!")
+                            else:
+                                st.warning(f"📉 Thấp hơn baseline {abs(improvement):.2f}%")
+                                
+                    except Exception as e:
+                        st.error(f"Lỗi khi test metric: {str(e)}")
 
 # Footer
 st.markdown("---")
