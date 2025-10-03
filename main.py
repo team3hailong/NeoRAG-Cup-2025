@@ -37,12 +37,5 @@ print(f"Rebuilt collection 'information': inserted={inserted}, total={current_co
 
 from metrics_rag import  precision_k, groundedness_k, hit_k, bleu_4_k, context_recall_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k, noise_sensitivity_k, calculate_metrics_retrieval, calculate_metrics_llm_answer, recall_k
 
-df_retrieval_metrics_1 = calculate_metrics_retrieval("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_retrieval_metrics_1.head())
-df_llm_metrics_1 = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_llm_metrics_1.head())
-
-df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
 df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_retrieval_metrics.head())
 print(df_llm_metrics.head())
