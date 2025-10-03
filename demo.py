@@ -11,8 +11,6 @@ from embeddings import Embeddings
 from vector_db import VectorDatabase
 from rerank import Reranker
 from metrics_rag import (
-    calculate_metrics_retrieval, 
-    calculate_metrics_llm_answer,
     hit_k, recall_k, precision_k, context_precision_k, 
     context_recall_k, context_entities_recall_k, ndcg_k,
     retrieve_and_rerank
@@ -99,18 +97,14 @@ with st.sidebar:
     st.header("⚙️ Cấu hình hệ thống")
     
     # Default optimal configuration
-    st.info("🎯 **Cấu hình tối ưu mặc định:** ChromaDB + BGE-M3 + ViRanker + Query Expansion")
+    st.info("🎯 **Cấu hình mặc định:** ChromaDB + Fine-tune BGE-M3 + Fine-tune ViRanker + Query Expansion")
     
-    # LLM Configuration
-    st.markdown("### 🤖 LLM Configuration")
-    llm_provider = st.selectbox("LLM Provider:", ["nvidia", "groq"], index=0)
+    # LLM
+    st.markdown("### 🤖 LLM")
+    llm_provider = "nvidia"
     llm_config.LLM_PROVIDER = llm_provider
-    if llm_provider == "groq":
-        llm_model = "meta-llama/llama-4-maverick-17b-128e-instruct"
-        llm_config.GROQ_MODEL = llm_model
-    else:
-        llm_model = "writer/palmyra-med-70b"
-        llm_config.NVIDIA_MODEL = llm_model
+    llm_model = "writer/palmyra-med-70b"
+    llm_config.NVIDIA_MODEL = llm_model
     st.info(f"🤖 LLM Model cố định: {llm_model}")
     # Advanced LLM settings
     with st.expander("🔧 Tham số LLM", expanded=False):
@@ -140,9 +134,9 @@ with st.sidebar:
             with st.spinner("Đang khởi tạo hệ thống..."):
                 try:
                     db_type = "chromadb"
-                    model_name = "BAAI/bge-m3"
+                    model_name = "halobiron/bge-m3-embedding-PROPTIT-domain-ft"
                     embedding_type = "sentence_transformers"
-                    reranker_model = "namdp-ptit/ViRanker"
+                    reranker_model = "halobiron/ViRanker-PROPTIT-domain-ft"
                     use_reranker = True
                     use_query_expansion = True
                     

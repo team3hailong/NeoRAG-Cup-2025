@@ -39,133 +39,64 @@ Answer: "Chào em, CLB có hoạt động mentoring rất chu đáo cho thành v
 """
 
 # Helper to retrieve and optionally rerank results with query expansion
-use_fast_retrieval = False
-def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True, use_fast_retrieval=use_fast_retrieval):
-    # Check cache first
-    cache_key = (query, k, use_query_expansion, bool(reranker), use_fast_retrieval)
+def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
+    cache_key = (query, k, use_query_expansion, bool(reranker))
     if cache_key in _RETRIEVAL_CACHE:
         return _RETRIEVAL_CACHE[cache_key]
-    # Use M3 retrieval if available
-    if hasattr(embedding, 'use_colbert') and embedding.use_colbert:
+
+    # Setup single retrieval function
+    use_m3 = hasattr(embedding, 'use_colbert') and embedding.use_colbert
+    if use_m3:
         from m3_retriever.m3_hybrid_retriever import create_m3_hybrid_retriever
-        hybrid_retriever = create_m3_hybrid_retriever(embedding, vector_db)
-        retrieval_method = hybrid_retriever.retrieve_hybrid
-        
-        if not use_query_expansion:
-            all_results = retrieval_method(query, k * 2 if reranker else k)
-        else:
-            query_expander = QueryExpansion()
-            
-            expanded_queries = query_expander.expand_query(
-                query, 
-                techniques=["synonym", "context"],
-                max_expansions=2
-            )
-            
-            all_results = []
-            seen_docs = set()
-            
-            for i, exp_query in enumerate(expanded_queries):
-                if i == 0: # Câu gốc có weight cao nhất
-                    weight = 1.0
-                    retrieval_limit = k  
-                else:
-                    weight = 0.7 - (i-1) * 0.1  
-                    retrieval_limit = max(2, k // 2)  
-                
-                results = retrieval_method(exp_query, retrieval_limit * 2)
-                
-                for j, result in enumerate(results):
-                    doc_id = result.get('title', str(hash(result['information'])))
-                    if doc_id not in seen_docs:
-                        position_penalty = 1.0 / (j + 1)  
-                        result['combined_score'] = weight * position_penalty * result['score']
-                        result['expansion_weight'] = weight
-                        result['source_query'] = exp_query
-                        all_results.append(result)
-                        seen_docs.add(doc_id)
-            
-            all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
-            all_results = all_results[:k * 2]
+        hybrid = create_m3_hybrid_retriever(embedding, vector_db)
+        def retrieve_single(q, limit):
+            return hybrid.retrieve_hybrid(q, limit)
     else:
-        # Fallback to original retrieval method
-        if not use_query_expansion:
-            query_embeddings = embedding.encode(query)
-            print(f"Query embedding keys: {list(query_embeddings.keys()) if isinstance(query_embeddings, dict) else 'Not dict'}")
-            
-            # Extract ColBERT vectors for vector DB query if available
-            if isinstance(query_embeddings, dict) and 'colbert_vecs' in query_embeddings and embedding.use_colbert:
-                user_embedding = query_embeddings['colbert_vecs']
-                print(f"Using ColBERT query embedding - shape: {np.array(user_embedding).shape}")
+        def retrieve_single(q, limit):
+            emb = embedding.encode(q)
+            if isinstance(emb, dict) and 'colbert_vecs' in emb and getattr(embedding, 'use_colbert', False):
+                vec = emb['colbert_vecs']
             else:
-                # Use dense vectors as fallback
-                dense = query_embeddings.get('dense_vecs') if isinstance(query_embeddings, dict) else query_embeddings
-                user_embedding = dense
-                print(f"Using dense query embedding - shape: {np.array(user_embedding).shape}")
-            
-            initial_limit = k * 2 if reranker else k
-            all_results = vector_db.query("information", user_embedding, limit=initial_limit, embedding_model=embedding)
-            print(f"Retrieved {len(all_results)} results from vector DB")
-        else:
-            query_expander = QueryExpansion()
-            
-            expanded_queries = query_expander.expand_query(
-                query, 
-                techniques=["synonym", "context"],
-                max_expansions=2
-            )
-            
-            all_results = []
-            seen_docs = set()
-            
-            for i, exp_query in enumerate(expanded_queries):
-                if i == 0: # Câu gốc có weight cao nhất
-                    weight = 1.0
-                    retrieval_limit = k  
-                else:
-                    weight = 0.7 - (i-1) * 0.1  
-                    retrieval_limit = max(2, k // 2)  
-                
-                query_embeddings = embedding.encode(exp_query)
-                # Extract ColBERT vectors for vector DB query if available
-                if isinstance(query_embeddings, dict) and 'colbert_vecs' in query_embeddings and embedding.use_colbert:
-                    user_embedding = query_embeddings['colbert_vecs']
-                else:
-                    # Use dense vectors as fallback
-                    dense = query_embeddings.get('dense_vecs') if isinstance(query_embeddings, dict) else query_embeddings
-                    user_embedding = dense
-                    
-                results = vector_db.query("information", user_embedding, limit=retrieval_limit * 2, embedding_model=embedding)
-                
-                for j, result in enumerate(results):
-                    doc_id = result.get('title', str(hash(result['information'])))
-                    if doc_id not in seen_docs:
-                        position_penalty = 1.0 / (j + 1)  
-                        result['combined_score'] = weight * position_penalty
-                        result['expansion_weight'] = weight
-                        result['source_query'] = exp_query
-                        all_results.append(result)
-                        seen_docs.add(doc_id)
-            
-            all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
-            all_results = all_results[:k * 2]
-    
-    if reranker and all_results:
-        top_results = all_results[:min(k * 2, len(all_results))]
-        passages = [res['information'] for res in top_results]
-        ranked_scores, ranked_passages = reranker(query, passages)
-        
-        reranked_results = []
-        for rp in ranked_passages[:k]:
-            for res in top_results:
-                if res['information'] == rp:
-                    reranked_results.append(res)
-                    break
-        results_to_return = reranked_results
+                vec = emb.get('dense_vecs') if isinstance(emb, dict) else emb
+            return vector_db.query('information', vec, limit=limit, embedding_model=embedding)
+
+    # Prepare queries (with or without expansion)
+    if use_query_expansion:
+        expander = QueryExpansion()
+        queries = expander.expand_query(query, techniques=['synonym', 'context'], max_expansions=2)
     else:
-        results_to_return = all_results[:k]
-    _RETRIEVAL_CACHE[cache_key] = results_to_return
-    return results_to_return
+        queries = [query]
+
+    # Aggregate results with combined scoring
+    all_results = []
+    seen = set()
+    for i, q in enumerate(queries):
+        weight = 1.0 if i == 0 else max(0.0, 0.7 - (i-1)*0.1)
+        limit = (k if i == 0 else max(2, k//2)) * (2 if reranker else 1)
+        candidates = retrieve_single(q, limit)
+        for j, doc in enumerate(candidates):
+            doc_id = doc.get('title', str(hash(doc.get('information', ''))))
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            score = doc.get('score', 1.0)
+            combined = weight * (1.0 / (j+1)) * score
+            doc.update({'combined_score': combined, 'expansion_weight': weight, 'source_query': q})
+            all_results.append(doc)
+    # Sort and trim before reranking
+    all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
+    pre_k = all_results[:k*2] if reranker else all_results[:k]
+
+    # Optional reranking step
+    if reranker and pre_k:
+        passages = [doc['information'] for doc in pre_k]
+        _, reranked_passages = reranker(query, passages)
+        results = [doc for rp in reranked_passages[:k] for doc in pre_k if doc['information'] == rp]
+    else:
+        results = pre_k
+
+    _RETRIEVAL_CACHE[cache_key] = results
+    return results
 
 load_dotenv()
 
