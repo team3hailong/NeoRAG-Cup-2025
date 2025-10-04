@@ -8,8 +8,7 @@ graph TD
     A[User Query]
     A --> B["Query Expansion
     • Synonym Expansion
-    • Context-Aware Expansion
-    • LLM-Based Expansion"]
+    • Context-Aware Expansion"]
     B --> C["Embedding Model
     halobiron/bge-m3-embedding-PROPTIT-domain-ft
     (sentence-transformers)"]
