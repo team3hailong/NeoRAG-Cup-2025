@@ -38,13 +38,12 @@ Document: "Có, mentor sẽ hướng dẫn kỹ thuật, giải đáp thắc m�
 Answer: "Chào em, CLB có hoạt động mentoring rất chu đáo cho thành viên mới đó! Mentor của CLB sẽ hướng dẫn em về kỹ thuật, giải đáp mọi thắc mắc và giúp em làm quen với các dự án một cách nhanh chóng nhất."
 """
 
-# Helper to retrieve and optionally rerank results with query expansion
 def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expansion=True):
     cache_key = (query, k, use_query_expansion, bool(reranker))
     if cache_key in _RETRIEVAL_CACHE:
         return _RETRIEVAL_CACHE[cache_key]
 
-    # Setup single retrieval function
+    # Chọn retrieval function
     use_m3 = hasattr(embedding, 'use_colbert') and embedding.use_colbert
     if use_m3:
         from m3_retriever.m3_hybrid_retriever import create_m3_hybrid_retriever
@@ -54,20 +53,17 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
     else:
         def retrieve_single(q, limit):
             emb = embedding.encode(q)
-            if isinstance(emb, dict) and 'colbert_vecs' in emb and getattr(embedding, 'use_colbert', False):
-                vec = emb['colbert_vecs']
-            else:
-                vec = emb.get('dense_vecs') if isinstance(emb, dict) else emb
+            vec = emb.get('dense_vecs') if isinstance(emb, dict) else emb
             return vector_db.query('information', vec, limit=limit, embedding_model=embedding)
 
-    # Prepare queries (with or without expansion)
+    # Mở rộng truy vấn nếu cần
     if use_query_expansion:
         expander = QueryExpansion()
-        queries = expander.expand_query(query, techniques=['synonym', 'context'], max_expansions=2)
+        queries = expander.expand_query(query, techniques=['synonym', 'context'], max_expansions=1)
     else:
         queries = [query]
 
-    # Aggregate results with combined scoring
+    # Gộp kết quả với điểm số kết hợp
     all_results = []
     seen = set()
     for i, q in enumerate(queries):
@@ -83,11 +79,11 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
             combined = weight * (1.0 / (j+1)) * score
             doc.update({'combined_score': combined, 'expansion_weight': weight, 'source_query': q})
             all_results.append(doc)
-    # Sort and trim before reranking
+    # Sắp xếp và lấy top-k (hoặc top-2k nếu reranker)
     all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
     pre_k = all_results[:k*2] if reranker else all_results[:k]
 
-    # Optional reranking step
+    # Rerank các kết quả nếu có reranker
     if reranker and pre_k:
         passages = [doc['information'] for doc in pre_k]
         _, reranked_passages = reranker(query, passages)
