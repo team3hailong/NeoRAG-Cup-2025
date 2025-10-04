@@ -1,12 +1,7 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import json
 import time
-from docx import Document
 from ingest_utils import build_collection_from_docx
-import plotly.express as px
-import plotly.graph_objects as go
 from embeddings import Embeddings
 from vector_db import VectorDatabase
 from rerank import Reranker

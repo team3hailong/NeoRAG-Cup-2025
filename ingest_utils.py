@@ -11,14 +11,6 @@ def build_collection_from_docx(
     rebuild: bool = False,
     progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> int:
-    """
-    Build or update a vector collection from a DOCX file using BGE-M3 when available.
-
-    - Stores ColBERT multi-vectors if present, with cached dense/sparse in metadata,
-      so hybrid/fast retrievers don’t need to re-encode at query time.
-
-    Returns the number of inserted documents.
-    """
     if rebuild:
         try:
             vector_db.drop_collection(collection_name)

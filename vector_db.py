@@ -1,16 +1,12 @@
 from pymongo import MongoClient
 import chromadb
 from qdrant_client import QdrantClient
-from supabase import create_client, Client
 from dotenv import load_dotenv
 from qdrant_client import models as qdrant_models
 load_dotenv()
 import os
 import numpy as np
 import pickle
-import json
-
-# qdrant < mongodb < chromadb (supabase cần tạo bảng thủ công)
 
 # Các em có thể tự thêm vector database mới hoặc dùng các database có sẵn
 class VectorDatabase:
@@ -22,14 +18,6 @@ class VectorDatabase:
             self.client = chromadb.Client()
         elif self.db_type == "qdrant":
             self.client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_KEY"))
-        elif self.db_type == "supabase":
-            url: str = os.environ.get("SUPABASE_URL")
-            key: str = os.environ.get("SUPABASE_KEY")
-            supabase: Client = create_client(
-                supabase_url=url,
-                supabase_key=key
-                )
-            self.client = supabase
     def _ensure_collection_exists(self, collection_name: str):
         """Ensure collection exists for Qdrant, create if it doesn't"""
         if self.db_type == "qdrant":
@@ -140,18 +128,6 @@ class VectorDatabase:
                         }
                     ]
                 )
-                
-        elif self.db_type == "supabase":
-            if is_colbert:
-                document_copy = document.copy()
-                document_copy["embedding"] = pickle.dumps(embedding).hex()
-                document_copy["is_colbert"] = True
-                document_copy["embedding_shape_0"] = int(embedding.shape[0])
-                document_copy["embedding_shape_1"] = int(embedding.shape[1])
-            else:
-                document_copy = document.copy()
-                document_copy["is_colbert"] = False
-            self.client.table(collection_name).insert(document_copy).execute()
     def query(self, collection_name: str, query_vector, limit: int = 5, embedding_model=None):
         """
         Query the vector database. 
@@ -293,30 +269,6 @@ class VectorDatabase:
                         "score": result.score
                     })
                 return formatted_results
-                
-        elif self.db_type == "supabase":
-            response = self.client.table(collection_name).select("*").execute()
-            
-            if is_query_colbert:
-                results = []
-                for doc in response.data:
-                    if doc.get("is_colbert", False):
-                        doc_embedding = pickle.loads(bytes.fromhex(doc["embedding"]))
-                        score = embedding_model.compute_colbert_similarity(query_vector, doc_embedding)
-                    else:
-                        query_mean = np.mean(query_vector, axis=0).tolist()
-                        score = np.dot(query_mean, doc["embedding"])
-                    
-                    results.append({
-                        "title": doc["title"],
-                        "information": doc["information"],
-                        "score": float(score)
-                    })
-                
-                results.sort(key=lambda x: x["score"], reverse=True)
-                return results[:limit]
-            else:
-                return response.data
 
     def document_exists(self, collection_name, filter_query):
         if self.db_type == "mongodb":
@@ -355,9 +307,6 @@ class VectorDatabase:
             except Exception as e:
                 print(f"Error checking document existence in Qdrant: {e}")
                 return False
-        elif self.db_type == "supabase":
-            response = self.client.table(collection_name).select("*").eq("title", filter_query["title"]).execute()
-            return len(response.data) > 0
         else:
             raise ValueError("Unsupported database type")
     def count_documents(self, collection_name: str) -> int:
@@ -373,11 +322,6 @@ class VectorDatabase:
         elif self.db_type == "qdrant":
             result = self.client.count(collection_name=collection_name, exact=True)
             return result.count
-
-        elif self.db_type == "supabase":
-            data = self.client.table(collection_name).select("id", count="exact").execute()
-            return data.count
-
         else:
             raise NotImplementedError("Vector DB type chưa hỗ trợ: " + self.db_type)
 
@@ -391,7 +335,5 @@ class VectorDatabase:
         elif self.db_type == "qdrant":
             if self.client.collection_exists(collection_name=collection_name):
                 self.client.delete_collection(collection_name=collection_name)
-        elif self.db_type == "supabase":
-            self.client.table(collection_name).delete().execute()
         else:
             raise ValueError("Unsupported database type for drop_collection")
