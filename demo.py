@@ -22,6 +22,58 @@ load_dotenv()
 import llm_config
 from llm_config import get_llm_response
 
+# Caching functions to optimize retrieval and LLM response speed
+@st.cache_data(show_spinner=False)
+def cached_retrieve_and_rerank(query, k, use_query_expansion):
+    return retrieve_and_rerank(
+        query=query,
+        embedding=st.session_state.embedding_model,
+        vector_db=st.session_state.vector_db,
+        reranker=st.session_state.reranker,
+        k=k,
+        use_query_expansion=use_query_expansion
+    )
+
+@st.cache_data(show_spinner=False)
+def cached_llm_response(context, user_query, temperature, max_tokens):
+    # Build prompt with context and examples
+    prompt = f"""
+    **Bối cảnh:**
+    Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
+
+    **Ví dụ (Few-shot Examples):**
+    *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
+        *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
+        *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
+
+    *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
+        *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
+        *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
+
+    **Thông tin tham khảo:**
+    ---
+    {context}
+    ---
+
+    **Yêu cầu:**
+    Dựa vào **duy nhất** "Thông tin tham khảo" ở trên và học theo phong cách từ các ví dụ, hãy trả lời câu hỏi sau đây của người dùng.
+
+    **Câu hỏi:** "{user_query}"
+
+    **Quy tắc trả lời:**
+    1.  **Chính xác và Trung thực:** Chỉ sử dụng thông tin đã cho. Nếu thông tin không có trong tài liệu, hãy trả lời như "Ví dụ 2".
+    2.  **Chi tiết và Rõ ràng:** Trả lời đầy đủ, chi tiết. Sử dụng gạch đầu dòng hoặc định dạng phù hợp nếu câu trả lời có nhiều ý hoặc cần liệt kê.
+    3.  **Tự nhiên và Thân thiện:** Sử dụng ngôn ngữ tiếng Việt tự nhiên, giọng văn thân thiện như đang trò chuyện.
+    4.  **Không suy diễn:** Tuyệt đối không suy diễn, không bịa đặt hoặc thêm thông tin không có trong văn bản.
+
+    **Câu trả lời của bạn (bằng tiếng Việt):**
+    """
+    messages = [
+        {"role": "system", "content": "Bạn là một trợ lý AI chuyên gia về CLB Lập trình ProPTIT, luôn trả lời bằng tiếng Việt dựa trên thông tin được cung cấp."},
+        {"role": "user", "content": prompt}
+    ]
+    return get_llm_response(messages, temperature=temperature, max_tokens=max_tokens)
+
 # Page config
 st.set_page_config(
     page_title="NeoRAG Cup 2025 - Demo",
@@ -217,13 +269,10 @@ with tab1:
                     # Retrieve relevant documents
                     start_time = time.time()
                     
-                    results = retrieve_and_rerank(
-                        query=user_query,
-                        embedding=st.session_state.embedding_model,
-                        vector_db=st.session_state.vector_db,
-                        reranker=st.session_state.reranker,
-                        k=top_k,
-                        use_query_expansion=True
+                    results = cached_retrieve_and_rerank(
+                        user_query,
+                        top_k,
+                        True
                     )
                     
                     retrieval_time = time.time() - start_time
@@ -249,45 +298,7 @@ with tab1:
                     if len(context) > max_context_chars:
                         context = context[:max_context_chars] + "\n\n...(Nội dung đã bị cắt ngắn)..."
                     
-                    # Build prompt
-                    prompt = f"""
-                    **Bối cảnh:**
-                    Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
-
-                    **Ví dụ (Few-shot Examples):**
-                    *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
-                        *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
-                        *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
-
-                    *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
-                        *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
-                        *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
-
-                    **Thông tin tham khảo:**
-                    ---
-                    {context}
-                    ---
-
-                    **Yêu cầu:**
-                    Dựa vào **duy nhất** "Thông tin tham khảo" ở trên và học theo phong cách từ các ví dụ, hãy trả lời câu hỏi sau đây của người dùng.
-
-                    **Câu hỏi:** "{user_query}"
-
-                    **Quy tắc trả lời:**
-                    1.  **Chính xác và Trung thực:** Chỉ sử dụng thông tin đã cho. Nếu thông tin không có trong tài liệu, hãy trả lời như "Ví dụ 2".
-                    2.  **Chi tiết và Rõ ràng:** Trả lời đầy đủ, chi tiết. Sử dụng gạch đầu dòng hoặc định dạng phù hợp nếu câu trả lời có nhiều ý hoặc cần liệt kê.
-                    3.  **Tự nhiên và Thân thiện:** Sử dụng ngôn ngữ tiếng Việt tự nhiên, giọng văn thân thiện như đang trò chuyện.
-                    4.  **Không suy diễn:** Tuyệt đối không suy diễn, không bịa đặt hoặc thêm thông tin không có trong văn bản.
-
-                    **Câu trả lời của bạn (bằng tiếng Việt):**
-                    """
-                    # Prepare messages
-                    messages = [
-                        {"role": "system", "content": "Bạn là một trợ lý AI chuyên gia về CLB Lập trình ProPTIT, luôn trả lời bằng tiếng Việt dựa trên thông tin được cung cấp."},
-                        {"role": "user", "content": prompt}
-                    ]
-                    # Get response
-                    answer = get_llm_response(messages, temperature=temperature, max_tokens=max_tokens)
+                    answer = cached_llm_response(context, user_query, temperature, max_tokens)
                     
                     # Add to chat history
                     st.session_state.chat_history.append({

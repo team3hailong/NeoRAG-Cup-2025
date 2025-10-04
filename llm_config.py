@@ -18,9 +18,6 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "writer/palmyra-med-70b")  
 NVIDIA_ENDPOINT = os.getenv("NVIDIA_ENDPOINT", "https://integrate.api.nvidia.com/v1/chat/completions")
 
-if NVIDIA_API_KEY:
-    print(f"✅ NVIDIA client ready: {NVIDIA_MODEL}")
-
 def get_llm_response(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 300, max_retries: int = 3) -> str:
     """
     Đơn giản gọi LLM - tự động chọn provider có sẵn
