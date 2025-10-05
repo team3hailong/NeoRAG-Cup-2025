@@ -36,15 +36,6 @@ def cached_llm_response(context, user_query, temperature, max_tokens):
     **Bối cảnh:**
     Bạn là một trợ lý AI chuyên gia về Câu lạc bộ Lập trình ProPTIT. Nhiệm vụ của bạn là cung cấp các câu trả lời chính xác và hữu ích dựa *duy nhất* vào thông tin được cung cấp.
 
-    **Ví dụ (Few-shot Examples):**
-    *   **Ví dụ 1: Trả lời về quy trình tuyển thành viên**
-        *   **Câu hỏi:** "CLB tuyển thành viên như thế nào ạ?"
-        *   **Câu trả lời:** "Quá trình tuyển thành viên của CLB gồm 3 vòng: đầu tiên là vòng CV, sau đó sẽ đến vòng Phỏng vấn và cuối cùng là vòng Training của CLB. Thông tin chi tiết của các vòng sẽ được CLB cập nhật trên fanpage."
-
-    *   **Ví dụ 2: Thông tin không có trong ngữ cảnh**
-        *   **Câu hỏi:** "CLB có bao nhiêu thành viên hiện tại?"
-        *   **Câu trả lời:** "Xin lỗi, tôi không tìm thấy thông tin về số lượng thành viên hiện tại của CLB trong tài liệu được cung cấp."
-
     **Thông tin tham khảo:**
     ---
     {context}
@@ -59,7 +50,6 @@ def cached_llm_response(context, user_query, temperature, max_tokens):
     1.  **Chính xác và Trung thực:** Chỉ sử dụng thông tin đã cho. Nếu thông tin không có trong tài liệu, hãy trả lời như "Ví dụ 2".
     2.  **Chi tiết và Rõ ràng:** Trả lời đầy đủ, chi tiết. Sử dụng gạch đầu dòng hoặc định dạng phù hợp nếu câu trả lời có nhiều ý hoặc cần liệt kê.
     3.  **Tự nhiên và Thân thiện:** Sử dụng ngôn ngữ tiếng Việt tự nhiên, giọng văn thân thiện như đang trò chuyện.
-    4.  **Không suy diễn:** Tuyệt đối không suy diễn, không bịa đặt hoặc thêm thông tin không có trong văn bản.
 
     **Câu trả lời của bạn (bằng tiếng Việt):**
     """

@@ -57,9 +57,9 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
             return vector_db.query('information', vec, limit=limit, embedding_model=embedding)
 
     # Mở rộng truy vấn nếu cần
-    if use_query_expansion:
+    if use_query_expansion and k > 5:
         expander = QueryExpansion()
-        queries = expander.expand_query(query, techniques=['synonym', 'context'], max_expansions=1)
+        queries = expander.expand_query(query, techniques=['synonym'], max_expansions=1)
     else:
         queries = [query]
 
@@ -68,7 +68,7 @@ def retrieve_and_rerank(query, embedding, vector_db, reranker, k, use_query_expa
     seen = set()
     for i, q in enumerate(queries):
         weight = 1.0 if i == 0 else max(0.0, 0.7 - (i-1)*0.1)
-        limit = (k if i == 0 else max(2, k//2)) * (2 if reranker else 1)
+        limit = (k if i == 0 else max(1, k//5)) * (2 if reranker else 1)
         candidates = retrieve_single(q, limit)
         for j, doc in enumerate(candidates):
             doc_id = doc.get('title', str(hash(doc.get('information', ''))))

@@ -1,7 +1,6 @@
 import re
 from typing import List, Dict, Any
 from dotenv import load_dotenv
-import os
 
 # Import centralized LLM configuration  
 from llm_config import get_config_info
@@ -26,7 +25,6 @@ class QueryExpansion:
         self.use_llm = False
         self._cache: Dict[Any, List[str]] = {}
         
-        # Highly optimized keywords - chỉ các cặp quan trọng nhất để tối ưu tốc độ
         # Format: {original: replacement} cho O(1) lookup
         self.synonym_map = {
             'clb': 'câu lạc bộ',
@@ -59,7 +57,6 @@ class QueryExpansion:
         """Ultra-fast context expansion - chỉ 1 pattern matching quan trọng nhất"""
         query_lower = query.lower()
 
-        # Chỉ handle pattern phổ biến nhất để tối ưu tốc độ
         # Thành lập/ra đời
         if "thành lập" in query:
             return [query.replace("thành lập", "ra đời")]
