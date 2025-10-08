@@ -328,16 +328,16 @@ with tab2:
         "Train": {
             "Retrieval": {
                 'k': [3, 5, 7],
-                'hit@k': [0.94, 0.97, 0.99],
-                'recall@k': [0.79, 0.91, 0.95],
-                'precision@k': [0.51, 0.36, 0.27],
-                'f1@k': [0.62, 0.52, 0.43],
-                'map@k': [0.74, 0.69, 0.66],
-                'mrr@k': [0.75, 0.72, 0.71],
-                'ndcg@k': [0.79, 0.77, 0.76],
-                'context_precision@k': [0.84, 0.64, 0.65],
-                'context_recall@k': [0.63, 0.53, 0.49],
-                'context_entities_recall@k': [0.78, 0.83, 0.84]
+                'hit@k': [0.95, 0.99, 0.99],
+                'recall@k': [0.85, 0.94, 0.95],
+                'precision@k': [0.55, 0.37, 0.27],
+                'f1@k': [0.67, 0.54, 0.43],
+                'map@k': [0.85, 0.79, 0.78],
+                'mrr@k': [0.86, 0.82, 0.81],
+                'ndcg@k': [0.88, 0.85, 0.84],
+                'context_precision@k': [0.90, 0.66, 0.66],
+                'context_recall@k': [0.68, 0.56, 0.54],
+                'context_entities_recall@k': [0.77, 0.83, 0.84]
             },
             "LLM": {
                 'k': [3, 5, 7],
@@ -353,24 +353,24 @@ with tab2:
             "Retrieval": {
                 'k': [3, 5, 7],
                 'hit@k': [0.97, 0.97, 0.97],
-                'recall@k': [0.84, 0.89, 0.90],
-                'precision@k': [0.54, 0.36, 0.27],
-                'f1@k': [0.66, 0.51, 0.41],
-                'map@k': [0.86, 0.82, 0.79],
-                'mrr@k': [0.88, 0.86, 0.86],
-                'ndcg@k': [0.90, 0.87, 0.86],
-                'context_precision@k': [0.96, 0.77, 0.76],
-                'context_recall@k': [0.89, 0.73, 0.72],
-                'context_entities_recall@k': [0.95, 0.96, 0.96]
+                'recall@k': [0.82, 0.89, 0.91],
+                'precision@k': [0.53, 0.37, 0.28],
+                'f1@k': [0.65, 0.52, 0.42],
+                'map@k': [0.89, 0.84, 0.82],
+                'mrr@k': [0.89, 0.86, 0.85],
+                'ndcg@k': [0.91, 0.88, 0.87],
+                'context_precision@k': [0.96, 0.75, 0.78],
+                'context_recall@k': [0.93, 0.69, 0.72],
+                'context_entities_recall@k': [0.93, 0.95, 0.97]
             },
             "LLM": {
                 'k': [3, 5, 7],
-                'string_presence@k': [0.85, 0.86, 0.86],
-                'rouge_l@k': [0.55, 0.58, 0.59],
-                'bleu_4@k': [0.35, 0.38, 0.40],
+                'string_presence@k': [0.85, 0.85, 0.85],
+                'rouge_l@k': [0.58, 0.58, 0.57],
+                'bleu_4@k': [0.37, 0.37, 0.36],
                 'groundedness@k': [1.00, 1.00, 1.00],
-                'response_relevancy@k': [0.81, 0.81, 0.82],
-                'noise_sensitivity@k': [0.02, 0.02, 0.00]
+                'response_relevancy@k': [0.81, 0.82, 0.81],
+                'noise_sensitivity@k': [0.02, 0.02, 0.01]
             }
         }
     }
