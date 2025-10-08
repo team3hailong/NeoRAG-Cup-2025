@@ -12,11 +12,21 @@ from rerank import Reranker
 vector_db = VectorDatabase(db_type="chromadb")
 
 #--------------------Chọn embedding & reranker model--------------------
-print("[Embeddings] Using fine-tuned embeddings")
-embedding = Embeddings(model_name="halobiron/bge-m3-embedding-PROPTIT-domain-ft", type="sentence_transformers")
+emb_finetuned_path = '1'
+if emb_finetuned_path and os.path.isdir(emb_finetuned_path):
+    print(f"[Embeddings] Using fine-tuned checkpoint at: {emb_finetuned_path}")
+    embedding = Embeddings(model_name=emb_finetuned_path, type="sentence_transformers")
+else:
+    embedding = Embeddings(model_name="halobiron/bge-m3-embedding-PROPTIT-domain-ft", type="sentence_transformers")
 
-print(f"[Reranker] Using fine-tuned reranker")
-reranker = Reranker(model_name="halobiron/ViRanker-PROPTIT-domain-ft")
+
+rr_finetuned_path = 'outputs/bge-m3-finetuned-20250925-083628'
+if rr_finetuned_path and os.path.isdir(rr_finetuned_path):
+    print(f"[Reranker] Using fine-tuned checkpoint at: {rr_finetuned_path}")
+    reranker = Reranker(model_name=rr_finetuned_path)
+else:
+    print("Use base reranker")
+    reranker = Reranker(model_name="halobiron/ViRanker-PROPTIT-domain-ft")
 #------------------------------------------------------------   
 
 use_query_expansion = True
@@ -37,10 +47,6 @@ print(f"Rebuilt collection 'information': inserted={inserted}, total={current_co
 
 from metrics_rag import  precision_k, map_k, hit_k, bleu_4_k, context_recall_k, rouge_l_k, string_presence_k, context_entities_recall_k, context_precision_k, noise_sensitivity_k, calculate_metrics_retrieval, calculate_metrics_llm_answer, recall_k
 
-df_llm_metrics_1 = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, False, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_llm_metrics_1.head())
-
-df_retrieval_metrics = calculate_metrics_retrieval("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_retrieval_metrics.head())
-df_llm_metrics = calculate_metrics_llm_answer("CLB_PROPTIT.csv", "train_data_proptit.xlsx", embedding, vector_db, True, reranker=reranker, use_query_expansion=use_query_expansion) # đặt là True nếu là tập train, False là tập test
-print(df_llm_metrics.head())
+print("bleu_4_k@5:", bleu_4_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+print("rouge_l_k@5:", rouge_l_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))
+print("noise_sensitivity_k@5:", noise_sensitivity_k("CLB_PROPTIT.csv", "test_data_proptit.xlsx", embedding, vector_db, k=5, reranker=reranker, use_query_expansion=use_query_expansion))

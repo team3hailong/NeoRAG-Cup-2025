@@ -335,9 +335,9 @@ with tab2:
                 'map@k': [0.74, 0.69, 0.66],
                 'mrr@k': [0.75, 0.72, 0.71],
                 'ndcg@k': [0.79, 0.77, 0.76],
-                'context_precision@k': [0.83, 0.64, 0.65],
+                'context_precision@k': [0.84, 0.64, 0.65],
                 'context_recall@k': [0.63, 0.53, 0.49],
-                'context_entities_recall@k': [0.77, 0.83, 0.84]
+                'context_entities_recall@k': [0.78, 0.83, 0.84]
             },
             "LLM": {
                 'k': [3, 5, 7],

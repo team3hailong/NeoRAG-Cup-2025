@@ -11,6 +11,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, get_linear_schedule_with_warmup
 from transformers import TrainingArguments, Trainer
@@ -159,28 +160,31 @@ class RerankerDataset(Dataset):
         self.num_hard_negatives = num_hard_negatives
         self.num_random_negatives = num_random_negatives
         self.hard_neg_top_k = hard_neg_top_k
-        
+
         # Pre-build training examples
-        self.examples = self._build_examples()
+        self.examples, self.label_counts = self._build_examples()
     
-    def _build_examples(self) -> List[Tuple[str, str, int]]:
-        """Build list of (query, passage, label) tuples."""
-        examples = []
-        
+    def _build_examples(self) -> Tuple[List[Tuple[str, str, int]], Dict[int, int]]:
+        """Build list of (query, passage, label) tuples and track class counts."""
+        examples: List[Tuple[str, str, int]] = []
+        pos_count = 0
+        neg_count = 0
+
         for item in tqdm(self.data, desc="Building reranker training examples"):
             query = item["query"]
             pos_docs = item["positive_docs"]
-            
+
             # Add positive pairs
             for pos_id in pos_docs:
                 pos_text = self.corpus[pos_id]
                 examples.append((query, pos_text, 1))
-            
+                pos_count += 1
+
             # Mine hard negatives
             hard_negs = mine_hard_negatives_bm25(
                 query, pos_docs, self.corpus, top_k=self.hard_neg_top_k
             )
-            
+
             # Sample hard negatives
             sampled_hard = random.sample(
                 hard_negs,
@@ -189,7 +193,8 @@ class RerankerDataset(Dataset):
             for neg_id in sampled_hard:
                 neg_text = self.corpus[neg_id]
                 examples.append((query, neg_text, 0))
-            
+                neg_count += 1
+
             # Sample random negatives
             all_neg_ids = [did for did in self.corpus.keys() if did not in pos_docs]
             sampled_random = random.sample(
@@ -199,8 +204,10 @@ class RerankerDataset(Dataset):
             for neg_id in sampled_random:
                 neg_text = self.corpus[neg_id]
                 examples.append((query, neg_text, 0))
-        
-        return examples
+                neg_count += 1
+
+        label_counts = {1: pos_count, 0: neg_count}
+        return examples, label_counts
     
     def __len__(self):
         return len(self.examples)
@@ -223,6 +230,28 @@ class RerankerDataset(Dataset):
             "attention_mask": encoding["attention_mask"].squeeze(0),
             "labels": torch.tensor(label, dtype=torch.float)
         }
+
+
+def _summarize_binary_scores(labels: np.ndarray, scores: np.ndarray) -> Dict[str, float]:
+    """Utility to compute binary classification metrics from scores."""
+    labels = labels.astype(int).reshape(-1)
+    scores = scores.reshape(-1)
+
+    preds = (scores > 0.5).astype(int)
+    accuracy = float((preds == labels).mean()) if labels.size else 0.0
+
+    pos_mask = labels == 1
+    neg_mask = labels == 0
+    avg_pos_score = float(scores[pos_mask].mean()) if pos_mask.any() else 0.0
+    avg_neg_score = float(scores[neg_mask].mean()) if neg_mask.any() else 0.0
+    margin = float(avg_pos_score - avg_neg_score)
+
+    return {
+        "accuracy": accuracy,
+        "avg_pos_score": avg_pos_score,
+        "avg_neg_score": avg_neg_score,
+        "margin": margin,
+    }
 
 
 def compute_metrics_reranker(eval_dataset, model, tokenizer, device, batch_size=8):
@@ -265,18 +294,51 @@ def compute_metrics_reranker(eval_dataset, model, tokenizer, device, batch_size=
     accuracy = (all_preds == all_labels).mean()
     
     pos_mask = all_labels == 1
-    neg_mask = all_labels == 0
-    
-    avg_pos_score = all_scores[pos_mask].mean() if pos_mask.sum() > 0 else 0.0
-    avg_neg_score = all_scores[neg_mask].mean() if neg_mask.sum() > 0 else 0.0
-    margin = avg_pos_score - avg_neg_score
-    
-    return {
-        "accuracy": float(accuracy),
-        "avg_pos_score": float(avg_pos_score),
-        "avg_neg_score": float(avg_neg_score),
-        "margin": float(margin),
-    }
+    return _summarize_binary_scores(all_labels, all_scores)
+
+
+class RerankerTrainer(Trainer):
+    """Custom trainer that supplies BCE-with-logits loss for the reranker."""
+
+    def __init__(self, *args, pos_weight: Optional[float] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pos_weight_value = pos_weight
+
+    def compute_loss(self, model, inputs, return_outputs=False):  # type: ignore[override]
+        inputs = inputs.copy()
+        labels = inputs.pop("labels")
+        labels = labels.view(-1).float()
+
+        outputs = model(**inputs)
+        logits = outputs.logits.view(-1)
+
+        if self._pos_weight_value is not None:
+            pos_weight = torch.tensor(self._pos_weight_value, dtype=torch.float, device=logits.device)
+        else:
+            pos_weight = None
+
+        loss_fct = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        loss = loss_fct(logits, labels.to(logits.device))
+
+        if return_outputs:
+            outputs.logits = logits
+            return loss, outputs
+        return loss
+
+
+def build_trainer_metrics_fn():
+    def _compute_metrics(eval_pred):
+        logits = eval_pred.predictions
+        labels = eval_pred.label_ids
+        if isinstance(logits, tuple):
+            logits = logits[0]
+        logits = np.array(logits).reshape(-1)
+        labels = np.array(labels).reshape(-1)
+        scores = 1 / (1 + np.exp(-logits))
+        return _summarize_binary_scores(labels, scores)
+
+    return _compute_metrics
+
 
 
 def main():
@@ -386,37 +448,59 @@ def main():
         print(f"[Info] Dev examples: {len(eval_dataset)}")
     
     # Training arguments optimized for limited hardware
-    training_args = TrainingArguments(
+    training_args_kwargs = dict(
         output_dir=out_dir,
         overwrite_output_dir=True,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size * 2,
+        per_device_eval_batch_size=max(1, args.batch_size * 2),
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.lr,
         warmup_ratio=args.warmup_ratio,
         logging_steps=args.logging_steps,
         save_steps=args.save_steps,
+        evaluation_strategy="steps" if eval_dataset else "no",
         eval_steps=args.eval_steps if eval_dataset else args.save_steps,
-        eval_strategy="steps" if eval_dataset else "no",
         save_strategy="steps",
         save_total_limit=2,
-        load_best_model_at_end=True if eval_dataset else False,
-        metric_for_best_model="eval_loss" if eval_dataset else None,
-        greater_is_better=False,
         fp16=args.fp16 and torch.cuda.is_available(),
-        dataloader_num_workers=0,  # Avoid multiprocessing issues on Windows
+        dataloader_num_workers=0,
         max_steps=args.max_steps,
-        report_to="none",  # Disable wandb/tensorboard
+        report_to="none",
         seed=args.seed,
     )
-    
+
+    if eval_dataset:
+        training_args_kwargs.update(
+            load_best_model_at_end=True,
+            metric_for_best_model="accuracy",
+            greater_is_better=True,
+        )
+    else:
+        training_args_kwargs.update(load_best_model_at_end=False)
+
+    training_args = TrainingArguments(**training_args_kwargs)
+
+    # Compute class imbalance ratio for loss weighting
+    pos_count = train_dataset.label_counts.get(1, 0)
+    neg_count = train_dataset.label_counts.get(0, 0)
+    pos_weight = None
+    if pos_count > 0 and neg_count > 0:
+        pos_weight = neg_count / max(1, pos_count)
+        print(f"[Info] Using BCEWithLogitsLoss with pos_weight={pos_weight:.4f}")
+    else:
+        print("[Warn] Could not compute class balance for pos_weight; falling back to unweighted BCE loss")
+
+    compute_metrics_fn = build_trainer_metrics_fn() if eval_dataset else None
+
     # Trainer
-    trainer = Trainer(
+    trainer = RerankerTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        compute_metrics=compute_metrics_fn,
+        pos_weight=pos_weight,
     )
     
     print("[Info] Starting training...")
@@ -453,13 +537,11 @@ def main():
         
         # Evaluate on dev set if available
         if eval_dataset:
-            print("[Info] Computing final dev metrics...")
-            metrics = compute_metrics_reranker(
-                eval_dataset, model, tokenizer, device, batch_size=args.batch_size * 2
-            )
-            print(f"[Info] Dev metrics: {metrics}")
+            print("[Info] Computing final dev metrics with trainer.evaluate()...")
+            eval_metrics = trainer.evaluate()
+            print(f"[Info] Dev metrics: {eval_metrics}")
             with open(os.path.join(out_dir, "dev_metrics.json"), "w", encoding="utf-8") as f:
-                json.dump(metrics, f, indent=2, ensure_ascii=False)
+                json.dump(eval_metrics, f, indent=2, ensure_ascii=False)
         
         print(f"[Done] Fine-tuned reranker saved to: {out_dir}")
         print(f"[Info] To use in code: Reranker(model_name='{out_dir}')")

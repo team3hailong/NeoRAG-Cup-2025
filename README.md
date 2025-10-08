@@ -28,7 +28,7 @@ graph TD
 
 ### 🔧 Các thành phần chính:
 
-1. **Query Expansion Module**: Mở rộng câu truy vấn với 3 kỹ thuật chính
+1. **Query Expansion Module**: Mở rộng câu truy vấn với 2 kỹ thuật chính
 4. **ProPTIT-Optimized Embedding and Reranking**: 2 mô hình được fine-tune cho domain ProPTIT
 5. **Optimized LLM Generation**: NVIDIA với prompts tối ưu cho domain ProPTIT️
 
@@ -36,7 +36,6 @@ graph TD
 
 - **Synonym Expansion**: Mở rộng với từ đồng nghĩa và cách diễn đạt khác từ domain-specific keywords
 - **Context-Aware Expansion**: Mở rộng dựa trên ngữ cảnh CLB ProPTIT với template-based patterns
-- **LLM-Based Expansion**: Sử dụng LLM để tạo các cách hỏi khác nhau với prompt tối ưu
 
 ## 📈 Benchmark Results
 
