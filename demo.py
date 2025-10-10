@@ -341,12 +341,12 @@ with tab2:
             },
             "LLM": {
                 'k': [3, 5, 7],
-                'string_presence@k': [0.74, 0.76, 0.75],
-                'rouge_l@k': [0.25, 0.25, 0.25],
-                'bleu_4@k': [0.06, 0.05, 0.05],
-                'groundedness@k': [0.94, 0.96, 0.96],
+                'string_presence@k': [0.73, 0.74, 0.73],
+                'rouge_l@k': [0.25, 0.26, 0.24],
+                'bleu_4@k': [0.05, 0.06, 0.05],
+                'groundedness@k': [0.94, 0.95, 0.95],
                 'response_relevancy@k': [0.82, 0.82, 0.82],
-                'noise_sensitivity@k': [0.17, 0.15, 0.14]
+                'noise_sensitivity@k': [0.16, 0.15, 0.14]
             }
         },
         "Test": {
