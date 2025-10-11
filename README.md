@@ -43,53 +43,53 @@ graph TD
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **Hit@k** | 0.94 | 0.97 | 0.99 |
-| **Recall@k** | 0.79 | 0.91 | 0.95 |
-| **Precision@k** | 0.51 | 0.36 | 0.27 |
-| **F1@k** | 0.62 | 0.52 | 0.43 |
-| **MAP@k** | 0.74 | 0.69 | 0.66 |
-| **MRR@k** | 0.75 | 0.72 | 0.71 |
-| **NDCG@k** | 0.79 | 0.77 | 0.76 |
-| **Context Precision@k** | 0.83 | 0.64 | 0.65 |
-| **Context Recall@k** | 0.63 | 0.53 | 0.49 |
+| **Hit@k** | 0.95 | 0.99 | 0.99 |
+| **Recall@k** | 0.85 | 0.94 | 0.95 |
+| **Precision@k** | 0.55 | 0.37 | 0.27 |
+| **F1@k** | 0.67 | 0.54 | 0.43 |
+| **MAP@k** | 0.85 | 0.79 | 0.78 |
+| **MRR@k** | 0.86 | 0.82 | 0.81 |
+| **NDCG@k** | 0.88 | 0.85 | 0.84 |
+| **Context Precision@k** | 0.90 | 0.66 | 0.66 |
+| **Context Recall@k** | 0.68 | 0.56 | 0.54 |
 | **Context Entities Recall@k** | 0.77 | 0.83 | 0.84 |
 
 ### 🤖 LLM Answer Metrics - Train Data
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **String Presence@k** | 0.74 | 0.76 | 0.75 |
-| **ROUGE-L@k** | 0.25 | 0.25 | 0.25 |
-| **BLEU-4@k** | 0.06 | 0.05 | 0.05 |
-| **Groundedness@k** | 0.94 | 0.96 | 0.96 |
+| **String Presence@k** | 0.73 | 0.74 | 0.73 |
+| **ROUGE-L@k** | 0.25 | 0.26 | 0.24 |
+| **BLEU-4@k** | 0.05 | 0.06 | 0.05 |
+| **Groundedness@k** | 0.94 | 0.95 | 0.95 |
 | **Response Relevancy@k** | 0.82 | 0.82 | 0.82 |
-| **Noise Sensitivity@k** | 0.17 | 0.15 | 0.14 |
+| **Noise Sensitivity@k** | 0.16 | 0.15 | 0.14 |
 
 ### 🎯 Retrieval Metrics - Test Data (30 queries)
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
 | **Hit@k** | 0.97 | 0.97 | 0.97 |
-| **Recall@k** | 0.82 | 0.89 | 0.90 |
-| **Precision@k** | 0.53 | 0.36 | 0.27 |
-| **F1@k** | 0.65 | 0.51 | 0.41 |
-| **MAP@k** | 0.87 | 0.82 | 0.79 |
-| **MRR@k** | 0.88 | 0.86 | 0.86 |
-| **NDCG@k** | 0.90 | 0.87 | 0.86 |
-| **Context Precision@k** | 0.96 | 0.77 | 0.76 |
-| **Context Recall@k** | 0.88 | 0.73 | 0.72 |
-| **Context Entities Recall@k** | 0.94 | 0.96 | 0.96 |
+| **Recall@k** | 0.82 | 0.89 | 0.91 |
+| **Precision@k** | 0.53 | 0.37 | 0.28 |
+| **F1@k** | 0.65 | 0.52 | 0.42 |
+| **MAP@k** | 0.89 | 0.84 | 0.82 |
+| **MRR@k** | 0.89 | 0.86 | 0.85 |
+| **NDCG@k** | 0.91 | 0.88 | 0.87 |
+| **Context Precision@k** | 0.96 | 0.75 | 0.78 |
+| **Context Recall@k** | 0.93 | 0.69 | 0.72 |
+| **Context Entities Recall@k** | 0.93 | 0.95 | 0.97 |
 
 ### 🤖 LLM Answer Metrics - Test Data
 
 | Metric | k=3 | k=5 | k=7 |
 |--------|-----|-----|-----|
-| **String Presence@k** | 0.85 | 0.86 | 0.86 |
-| **ROUGE-L@k** | 0.55 | 0.58 | 0.59 |
-| **BLEU-4@k** | 0.35 | 0.38 | 0.40 |
+| **String Presence@k** | 0.85 | 0.85 | 0.85 |
+| **ROUGE-L@k** | 0.58 | 0.58 | 0.57 |
+| **BLEU-4@k** | 0.37 | 0.37 | 0.36 |
 | **Groundedness@k** | 1.00 | 1.00 | 1.00 |
-| **Response Relevancy@k** | 0.81 | 0.81 | 0.82 |
-| **Noise Sensitivity@k** | 0.02 | 0.02 | 0.00 |
+| **Response Relevancy@k** | 0.81 | 0.82 | 0.81 |
+| **Noise Sensitivity@k** | 0.02 | 0.02 | 0.01 |
 
 ## ✨ Điểm nổi bật (Điểm mạnh)
 
