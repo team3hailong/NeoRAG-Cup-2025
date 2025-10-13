@@ -341,12 +341,12 @@ with tab2:
             },
             "LLM": {
                 'k': [3, 5, 7],
-                'string_presence@k': [0.73, 0.74, 0.73],
-                'rouge_l@k': [0.25, 0.26, 0.24],
-                'bleu_4@k': [0.05, 0.06, 0.05],
-                'groundedness@k': [0.94, 0.95, 0.95],
+                'string_presence@k': [0.71, 0.75, 0.73],
+                'rouge_l@k': [0.25, 0.25, 0.26],
+                'bleu_4@k': [0.06, 0.05, 0.05],
+                'groundedness@k': [0.94, 0.93, 0.95],
                 'response_relevancy@k': [0.82, 0.82, 0.82],
-                'noise_sensitivity@k': [0.16, 0.15, 0.14]
+                'noise_sensitivity@k': [0.14, 0.18, 0.15]
             }
         },
         "Test": {
@@ -365,12 +365,12 @@ with tab2:
             },
             "LLM": {
                 'k': [3, 5, 7],
-                'string_presence@k': [0.85, 0.85, 0.85],
-                'rouge_l@k': [0.58, 0.58, 0.57],
-                'bleu_4@k': [0.37, 0.37, 0.36],
-                'groundedness@k': [1.00, 1.00, 1.00],
-                'response_relevancy@k': [0.81, 0.82, 0.81],
-                'noise_sensitivity@k': [0.02, 0.02, 0.01]
+                'string_presence@k': [0.82, 0.86, 0.84],
+                'rouge_l@k': [0.58, 0.62, 0.58],
+                'bleu_4@k': [0.38, 0.41, 0.37],
+                'groundedness@k': [0.99, 1.00, 1.00],
+                'response_relevancy@k': [0.81, 0.81, 0.81],
+                'noise_sensitivity@k': [0.00, 0.00, 0.01]
             }
         }
     }
